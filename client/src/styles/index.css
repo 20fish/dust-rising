@@ -1,0 +1,1060 @@
+/* ═══════════════════════════════════════════════════════════
+ * 尘起时刻 · 主样式表
+ * 暗黑金风格 · 镜像对称双人对战布局
+ * ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #060608;
+  --surface: #0f0f14;
+  --gold: #c9a050;
+  --gold-dim: #7a5e2a;
+  --gold-muted: rgba(201, 160, 80, 0.12);
+  --gold-ghost: rgba(201, 160, 80, 0.04);
+  --def: #5b8db8;
+  --def-muted: rgba(91, 141, 184, 0.14);
+  --atk: #c45454;
+  --atk-muted: rgba(196, 84, 84, 0.14);
+  --med: #8b5ea8;
+  --med-muted: rgba(139, 94, 168, 0.14);
+  --text: #c8c0b0;
+  --text-dim: #5e5a54;
+  --text-bright: #e8e0d0;
+  --border: #1a1816;
+  --border-light: #24211c;
+  --danger: #d94a4a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%; overflow: hidden;
+  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ── 背景氛围 ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 30%, rgba(201, 160, 80, 0.025) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 40% at 50% 70%, rgba(201, 160, 80, 0.025) 0%, transparent 70%);
+}
+
+/* ═══════════════ 桌面 ═══════════════ */
+.table {
+  position: relative; z-index: 1;
+  width: 100%; height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 0 max(24px, 3vw);
+}
+
+/* ── 属性行 ── */
+.stats {
+  display: flex; align-items: center; gap: 18px;
+  padding: 6px 0;
+  height: 36px;
+  flex-shrink: 0;
+}
+.stats .name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px; font-weight: 700; color: var(--text-bright);
+  letter-spacing: 0.05em; min-width: 70px;
+}
+.stats.opponent .name { color: var(--text-dim); }
+.stat {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 500; color: var(--text-dim);
+}
+.stat .v {
+  font-size: 14px; font-weight: 700; color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+.stat .v.hp { color: var(--danger); }
+.stat .v.chg { color: var(--med); }
+.sep {
+  width: 1px; height: 16px; background: var(--border-light);
+}
+.seal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--gold-muted); border: 1px solid var(--gold-dim);
+  color: var(--gold); font-size: 11px; font-weight: 700;
+}
+
+/* ── 神器行 ── */
+.artifacts {
+  display: flex; gap: 16px; justify-content: center;
+  flex-shrink: 0;
+}
+.artifact {
+  width: min(28vw, 260px);
+  aspect-ratio: 1181 / 787;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, filter 0.3s;
+}
+.artifact:hover {
+  transform: scale(1.04);
+  box-shadow: 0 4px 20px rgba(201, 160, 80, 0.12);
+}
+.artifact img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.artifact::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: 6px;
+  border: 1px solid transparent;
+  transition: border-color 0.3s;
+  pointer-events: none;
+}
+.artifact.col1::after { border-color: rgba(201, 160, 80, 0.25); }
+.artifact.col2::after { border-color: rgba(91, 141, 184, 0.25); }
+.artifact.col3::after { border-color: rgba(217, 74, 74, 0.25); }
+.artifact .tag {
+  position: absolute; bottom: 6px; right: 6px;
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px;
+  background: rgba(0,0,0,0.75); letter-spacing: 0.03em;
+  z-index: 2;
+}
+.artifact .tag.active { color: var(--gold); }
+.artifact .tag.charged { color: var(--med); }
+
+/* ── 神器原图预览弹窗（GameBoard 统一渲染，全局唯一） ── */
+.artifact-preview-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(6, 6, 8, 0.9);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+  cursor: pointer;
+}
+.artifact-preview-img {
+  /*
+   * 图片上下边距：默认 50px
+   * 调整此值可改变图片离浏览器顶部/底部的距离
+   */
+  max-height: calc(100vh - 100px);
+  /*                          ^^^^ 上下各 50px 的总和 */
+  max-width: 90vw;
+  object-fit: contain;
+  display: block;
+  cursor: default;
+  border-radius: 6px;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+}
+.artifact-preview-close {
+  position: absolute; top: 20px; right: 20px;
+  width: 40px; height: 40px; border-radius: 50%;
+  font-size: 24px; color: var(--text-dim); cursor: pointer;
+  background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-light);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.artifact-preview-close:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ── 骰子行 ── */
+.dice-row {
+  display: flex; gap: 16px; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── 骰区 ── */
+.zone {
+  flex: 1; max-width: 320px; min-width: 200px;
+  padding: 14px 14px 14px;
+  display: flex; flex-direction: column;
+  gap: 8px;
+  border-radius: 8px;
+  position: relative;
+}
+.zone.def { background: var(--def-muted); }
+.zone.atk { background: var(--atk-muted); }
+.zone.med { background: var(--med-muted); }
+.zone::before {
+  content: '';
+  position: absolute; top: 0; left: 12px; right: 12px;
+  height: 1px;
+}
+.zone.def::before { background: rgba(91, 141, 184, 0.3); }
+.zone.atk::before { background: rgba(196, 84, 84, 0.3); }
+.zone.med::before { background: rgba(139, 94, 168, 0.3); }
+.zone-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-align: center;
+}
+.zone-label.def { color: var(--def); }
+.zone-label.atk { color: var(--atk); }
+.zone-label.med { color: var(--med); }
+.zone-dice {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center; align-items: center;
+}
+
+/* ── 骰面 ── */
+.die {
+  position: relative; display: inline-flex; flex-direction: column;
+  align-items: center; cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.die:hover { transform: translateY(-3px); }
+.die.sel .face {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px var(--gold-muted), 0 0 4px rgba(201, 160, 80, 0.25);
+}
+.face {
+  width: 44px; height: 44px;
+  background: linear-gradient(145deg, #18181e, #121218);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  padding: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  place-self: center;
+  background: var(--text-bright);
+  box-shadow: 0 0 1px rgba(232, 224, 208, 0.3);
+}
+.die.def .dot { background: var(--def); box-shadow: 0 0 2px rgba(91, 141, 184, 0.35); }
+.die.atk .dot { background: var(--atk); box-shadow: 0 0 2px rgba(196, 84, 84, 0.35); }
+.die.med .dot { background: var(--med); box-shadow: 0 0 2px rgba(139, 94, 168, 0.35); }
+
+/* 计数角标: 贴在骰面右上角 */
+.die-cnt {
+  position: absolute; top: 0; right: 0;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: 10px;
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1; z-index: 2;
+  transform: translate(50%, -50%);
+  transition: all 0.2s;
+}
+.die.sel .die-cnt {
+  background: var(--gold); color: #060608;
+  border-color: var(--gold);
+  box-shadow: 0 0 8px var(--gold-muted);
+}
+
+/* ═══════════════ 中央战场栏 ═══════════════ */
+.battlefield {
+  flex: 1 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  gap: 28px;
+  padding: 4px 0;
+}
+.bf-phase {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px; font-weight: 700; color: var(--gold);
+  letter-spacing: 0.08em;
+  padding: 5px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.bf-dust {
+  display: flex; align-items: baseline; gap: 4px;
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+.bf-dust .n {
+  font-size: 22px; font-weight: 900; color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.bf-acts {
+  display: flex; gap: 8px;
+}
+.btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px; font-weight: 600;
+  padding: 6px 16px; border-radius: 6px;
+  cursor: pointer; border: 1px solid var(--border-light);
+  background: var(--surface); color: var(--text-dim);
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.btn.primary {
+  background: linear-gradient(135deg, rgba(201, 160, 80, 0.18), rgba(201, 160, 80, 0.04));
+  border-color: rgba(201, 160, 80, 0.35); color: var(--gold);
+}
+.btn.primary:hover { box-shadow: 0 0 16px var(--gold-muted); }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { border-color: var(--danger); }
+
+/* ── 对手/玩家区域 ── */
+.player-area {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.player-area.opponent { padding-top: 1vh; }
+.player-area.player   { padding-bottom: 1vh; }
+
+/* ── 入场动画 ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.player-area.opponent { animation: fadeIn 0.5s ease both; animation-delay: 0.05s; }
+.player-area.player   { animation: fadeIn 0.5s ease both; animation-delay: 0.25s; }
+.battlefield          { animation: fadeIn 0.5s ease both; animation-delay: 0.45s; }
+
+/* ── 选中脉冲 ── */
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 10px var(--gold-muted); }
+  50%      { box-shadow: 0 0 20px var(--gold-muted), 0 0 6px rgba(201, 160, 80, 0.3); }
+}
+.die.sel .face { animation: pulse 1.6s ease-in-out infinite; }
+
+/* ── 游戏结束弹窗 ── */
+.gameover-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(6, 6, 8, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.4s ease;
+}
+.gameover-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  padding: 40px 60px;
+  text-align: center;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.gameover-card h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 24px; color: var(--gold);
+}
+.gameover-card p {
+  font-size: 18px; color: var(--text-bright);
+}
+.gameover-card button {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px; font-weight: 600;
+  padding: 10px 32px; border-radius: 8px;
+  cursor: pointer; border: 1px solid rgba(201, 160, 80, 0.35);
+  background: linear-gradient(135deg, rgba(201, 160, 80, 0.18), rgba(201, 160, 80, 0.04));
+  color: var(--gold);
+  transition: all 0.2s;
+}
+.gameover-card button:hover {
+  box-shadow: 0 0 20px var(--gold-muted);
+}
+
+/* ── 响应式 ── */
+@media (max-height: 700px) {
+  .face { width: 36px; height: 36px; padding: 4px; }
+  .dot  { width: 6px; height: 6px; }
+  .die-cnt { font-size: 10px; min-width: 16px; height: 16px; }
+  .artifact { width: min(24vw, 180px); }
+  .stats { height: 30px; gap: 12px; }
+  .stat .v { font-size: 12px; }
+  .name { font-size: 12px; }
+  .zone-label { font-size: 10px; }
+  .bf-phase { font-size: 12px; }
+}
+@media (min-height: 900px) {
+  .face { width: 50px; height: 50px; padding: 7px; }
+  .dot  { width: 8px; height: 8px; }
+  .artifact { width: min(30vw, 300px); }
+  .stats { height: 42px; }
+}
+
+/* ═══════════════ 主页 ═══════════════ */
+.home-page {
+  position: relative; z-index: 1;
+  width: 100%; height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.home-bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(201, 160, 80, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 30% at 50% 20%, rgba(201, 160, 80, 0.03) 0%, transparent 60%);
+}
+.home-content {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 32px;
+  padding: 40px;
+  animation: fadeIn 0.6s ease both;
+}
+.home-title-group {
+  text-align: center;
+}
+.home-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 48px; font-weight: 900; color: var(--gold);
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 60px rgba(201, 160, 80, 0.2);
+}
+.home-subtitle {
+  font-size: 14px; color: var(--text-dim);
+  letter-spacing: 0.2em; margin-top: 6px;
+}
+.home-name-input {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.home-label {
+  font-size: 12px; color: var(--text-dim); letter-spacing: 0.06em;
+}
+.home-input {
+  width: 260px; padding: 10px 16px;
+  font-family: 'Noto Sans SC', sans-serif; font-size: 14px;
+  background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: 8px; color: var(--text-bright); text-align: center;
+  outline: none; transition: border-color 0.2s;
+}
+.home-input:focus { border-color: var(--gold-dim); }
+.home-input::placeholder { color: var(--text-dim); }
+.home-buttons {
+  display: flex; gap: 20px;
+}
+.home-btn {
+  display: flex; align-items: center; gap: 14px;
+  padding: 20px 28px; border-radius: 12px;
+  cursor: pointer; border: 1px solid var(--border-light);
+  background: var(--surface);
+  transition: all 0.25s ease;
+  min-width: 200px;
+}
+.home-btn:hover { transform: translateY(-2px); }
+.home-btn.primary:hover {
+  border-color: rgba(201, 160, 80, 0.35);
+  box-shadow: 0 8px 32px rgba(201, 160, 80, 0.1);
+}
+.home-btn.secondary:hover {
+  border-color: rgba(139, 94, 168, 0.35);
+  box-shadow: 0 8px 32px rgba(139, 94, 168, 0.1);
+}
+.home-btn-icon {
+  font-size: 28px; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gold-ghost); border-radius: 10px;
+  flex-shrink: 0;
+}
+.home-btn.secondary .home-btn-icon {
+  background: rgba(139, 94, 168, 0.08);
+}
+.home-btn-text {
+  display: flex; flex-direction: column; text-align: left;
+}
+.home-btn-title {
+  font-size: 16px; font-weight: 700; color: var(--text-bright);
+}
+.home-btn-desc {
+  font-size: 12px; color: var(--text-dim);
+}
+.home-footer {
+  position: absolute; bottom: 20px;
+  font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em;
+  z-index: 1;
+}
+
+/* ═══════════════ 弹窗通用 ═══════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(6, 6, 8, 0.8);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  width: 420px; max-width: 92vw;
+  max-height: 85vh; overflow-y: auto;
+  animation: fadeIn 0.25s ease both;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 0;
+}
+.modal-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px; font-weight: 700; color: var(--gold);
+  letter-spacing: 0.06em;
+}
+.modal-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  font-size: 20px; color: var(--text-dim); cursor: pointer;
+  background: none; border: 1px solid var(--border-light);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover { color: var(--text-bright); border-color: var(--gold-dim); }
+.modal-body {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 20px 24px 24px;
+}
+
+/* ── 弹窗选项按钮 ── */
+.modal-option {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; padding: 16px 18px;
+  border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  transition: all 0.2s;
+  text-align: left;
+}
+.modal-option:hover {
+  border-color: var(--gold-dim);
+  background: var(--gold-ghost);
+}
+.modal-option-icon {
+  font-size: 24px; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gold-ghost); border-radius: 8px;
+  flex-shrink: 0;
+}
+.modal-option-text {
+  flex: 1; display: flex; flex-direction: column;
+}
+.modal-option-title {
+  font-size: 15px; font-weight: 600; color: var(--text-bright);
+}
+.modal-option-desc {
+  font-size: 12px; color: var(--text-dim);
+}
+.modal-option-arrow {
+  font-size: 20px; color: var(--text-dim);
+}
+
+/* ═══════════════ 表单元素 ═══════════════ */
+.form-group {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.form-label {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.form-input {
+  width: 100%; padding: 10px 14px;
+  font-family: 'Noto Sans SC', sans-serif; font-size: 14px;
+  background: var(--bg); border: 1px solid var(--border-light);
+  border-radius: 8px; color: var(--text-bright);
+  outline: none; transition: border-color 0.2s;
+}
+.form-input:focus { border-color: var(--gold-dim); }
+.form-input::placeholder { color: var(--text-dim); }
+.form-error {
+  font-size: 12px; color: var(--danger); padding: 4px 0;
+}
+.form-btn {
+  width: 100%; padding: 12px 0; border-radius: 8px;
+  font-family: 'Noto Sans SC', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border-light);
+  transition: all 0.2s;
+}
+.form-btn.primary {
+  background: linear-gradient(135deg, rgba(201, 160, 80, 0.18), rgba(201, 160, 80, 0.04));
+  border-color: rgba(201, 160, 80, 0.35); color: var(--gold);
+}
+.form-btn.primary:hover:not(:disabled) {
+  box-shadow: 0 0 16px var(--gold-muted);
+}
+.form-btn.primary:disabled {
+  opacity: 0.4; cursor: not-allowed;
+}
+.form-btn.secondary {
+  background: none; color: var(--text-dim);
+}
+.form-btn.secondary:hover { color: var(--text); border-color: var(--gold-dim); }
+
+/* ── 单选组 ── */
+.form-radio-group {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.form-radio {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 8px;
+  border: 1px solid var(--border-light);
+  cursor: pointer; transition: all 0.2s;
+}
+.form-radio:hover { border-color: var(--gold-dim); }
+.form-radio.selected {
+  border-color: rgba(201, 160, 80, 0.35);
+  background: var(--gold-muted);
+}
+.form-radio input[type="radio"] {
+  accent-color: var(--gold); width: 16px; height: 16px;
+}
+.form-radio-content {
+  display: flex; flex-direction: column;
+}
+.form-radio-title {
+  font-size: 14px; font-weight: 600; color: var(--text-bright);
+}
+.form-radio-desc {
+  font-size: 11px; color: var(--text-dim);
+}
+
+/* ═══════════════ 游戏房间 ═══════════════ */
+.room-page {
+  position: relative; z-index: 1;
+  width: 100%; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+}
+.room-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  padding: 36px 40px;
+  width: 420px; max-width: 92vw;
+  display: flex; flex-direction: column; gap: 20px;
+  animation: fadeIn 0.4s ease both;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+}
+.room-code-section {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.room-code-label {
+  font-size: 12px; color: var(--text-dim); letter-spacing: 0.06em;
+}
+.room-code-display {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px 32px; border-radius: 12px;
+  border: 1px dashed rgba(201, 160, 80, 0.3);
+  background: var(--gold-ghost);
+  cursor: pointer; transition: all 0.2s;
+}
+.room-code-display:hover {
+  border-color: var(--gold-dim);
+  background: var(--gold-muted);
+}
+.room-code-value {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 42px; font-weight: 900; color: var(--gold);
+  letter-spacing: 0.2em; font-variant-numeric: tabular-nums;
+}
+.room-code-copy {
+  font-size: 11px; color: var(--text-dim);
+}
+.room-hint {
+  text-align: center; font-size: 13px; color: var(--text-dim);
+}
+.room-section-title {
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+  letter-spacing: 0.04em; margin-bottom: 8px;
+}
+.room-players {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.room-player {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--border-light);
+}
+.room-player.host { border-color: rgba(201, 160, 80, 0.2); }
+.room-player.waiting { border-style: dashed; opacity: 0.5; }
+.room-player-badge {
+  font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+  background: rgba(201, 160, 80, 0.1); color: var(--gold);
+}
+.room-player.guest .room-player-badge {
+  background: rgba(91, 141, 184, 0.1); color: var(--def);
+}
+.room-player.waiting .room-player-badge {
+  background: var(--gold-ghost); color: var(--text-dim);
+}
+.room-player-name {
+  flex: 1; font-size: 14px; color: var(--text-bright);
+}
+.room-player-status {
+  font-size: 11px; color: var(--text-dim);
+}
+.room-actions {
+  display: flex; gap: 10px;
+}
+.room-btn {
+  flex: 1; padding: 12px 0; border-radius: 8px;
+  font-family: 'Noto Sans SC', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border-light);
+  transition: all 0.2s;
+}
+.room-btn.start {
+  background: linear-gradient(135deg, rgba(201, 160, 80, 0.18), rgba(201, 160, 80, 0.04));
+  border-color: rgba(201, 160, 80, 0.35); color: var(--gold);
+}
+.room-btn.start:hover { box-shadow: 0 0 16px var(--gold-muted); }
+.room-btn.leave {
+  background: none; color: var(--text-dim);
+}
+.room-btn.leave:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ═══════════════ 游戏大厅 ═══════════════ */
+.lobby-page {
+  position: relative; z-index: 1;
+  width: 100%; height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 0 max(24px, 5vw);
+}
+.lobby-header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px 0; flex-shrink: 0;
+}
+.lobby-back {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px; color: var(--text-dim); cursor: pointer;
+  background: none; border: 1px solid var(--border-light);
+  padding: 6px 14px; border-radius: 6px;
+  transition: all 0.2s;
+}
+.lobby-back:hover { color: var(--text); border-color: var(--gold-dim); }
+.lobby-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px; font-weight: 700; color: var(--gold);
+  flex: 1;
+}
+.lobby-count {
+  font-size: 12px; color: var(--text-dim);
+}
+.lobby-list {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+  padding-bottom: 40px;
+}
+.lobby-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 60px 0; color: var(--text-dim);
+}
+.lobby-empty-icon { font-size: 48px; }
+.lobby-create-btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px; font-weight: 600; padding: 8px 24px; border-radius: 8px;
+  cursor: pointer; border: 1px solid rgba(201, 160, 80, 0.35);
+  background: linear-gradient(135deg, rgba(201, 160, 80, 0.18), rgba(201, 160, 80, 0.04));
+  color: var(--gold); transition: all 0.2s;
+}
+.lobby-create-btn:hover { box-shadow: 0 0 16px var(--gold-muted); }
+
+.lobby-room-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  transition: all 0.2s;
+  animation: fadeIn 0.3s ease both;
+}
+.lobby-room-card:hover { border-color: var(--gold-dim); }
+.lobby-room-left {
+  display: flex; align-items: center; gap: 12px;
+}
+.lobby-room-code {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px; font-weight: 700; color: var(--gold);
+  letter-spacing: 0.06em;
+}
+.lobby-room-host {
+  font-size: 13px; color: var(--text-bright);
+}
+.lobby-room-lock {
+  font-size: 14px;
+}
+.lobby-room-right {
+  display: flex; align-items: center; gap: 10px;
+}
+.lobby-room-players {
+  font-size: 13px; color: var(--text-dim); font-weight: 600;
+}
+.lobby-room-join {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px; font-weight: 600; padding: 6px 18px; border-radius: 6px;
+  cursor: pointer; border: 1px solid rgba(201, 160, 80, 0.3);
+  background: rgba(201, 160, 80, 0.08); color: var(--gold);
+  transition: all 0.2s;
+}
+.lobby-room-join:hover:not(:disabled) {
+  background: rgba(201, 160, 80, 0.16);
+  box-shadow: 0 0 12px var(--gold-muted);
+}
+.lobby-room-join:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── 大厅内密码输入 ── */
+.lobby-room-password {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.lobby-password-input {
+  width: 100px; padding: 5px 10px;
+  font-family: 'Noto Sans SC', sans-serif; font-size: 12px;
+  background: var(--bg); border: 1px solid var(--border-light);
+  border-radius: 4px; color: var(--text-bright); outline: none;
+}
+.lobby-password-input:focus { border-color: var(--gold-dim); }
+.lobby-password-join,
+.lobby-password-cancel {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px;
+  cursor: pointer; border: 1px solid var(--border-light);
+  transition: all 0.2s;
+}
+.lobby-password-join {
+  background: rgba(201, 160, 80, 0.08); color: var(--gold);
+  border-color: rgba(201, 160, 80, 0.3);
+}
+.lobby-password-cancel {
+  background: none; color: var(--text-dim);
+}
+.lobby-password-error {
+  font-size: 11px; color: var(--danger); width: 100%;
+}
+
+/* ═══════════════ 神器轮选页面 ═══════════════ */
+.draft-page {
+  width: 100%; height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+.draft-header {
+  display: flex; align-items: center; gap: 20px;
+  padding: 12px 24px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.draft-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px; font-weight: 700; color: var(--gold);
+  letter-spacing: 0.06em;
+}
+.draft-turn {
+  flex: 1;
+}
+.draft-turn-badge {
+  font-size: 12px; font-weight: 600; padding: 4px 14px; border-radius: 20px;
+}
+.draft-turn-badge.yours {
+  background: rgba(201, 160, 80, 0.12); color: var(--gold);
+  animation: pulse 1.5s ease infinite;
+}
+.draft-turn-badge.waiting {
+  background: rgba(139, 94, 168, 0.1); color: var(--med);
+}
+.draft-progress {
+  display: flex; align-items: center; gap: 8px;
+}
+.draft-progress-text {
+  font-size: 13px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums;
+}
+.draft-progress-bar {
+  width: 100px; height: 4px; border-radius: 2px;
+  background: var(--border-light); overflow: hidden;
+}
+.draft-progress-fill {
+  height: 100%; border-radius: 2px;
+  background: var(--gold);
+  transition: width 0.3s ease;
+}
+
+/* ── 主内容区 ── */
+.draft-body {
+  flex: 1; display: flex; gap: 16px;
+  padding: 16px 24px 24px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── 轮选网格区域 ── */
+.draft-grid-area {
+  flex: 1; display: flex; flex-direction: column;
+  min-width: 0;
+}
+.draft-col-headers {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px; margin-bottom: 10px; flex-shrink: 0;
+}
+.draft-col-header {
+  text-align: center; font-size: 12px; font-weight: 600;
+  color: var(--text-dim); letter-spacing: 0.04em;
+  padding: 6px 0; border-radius: 4px;
+  background: var(--gold-ghost);
+}
+.draft-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+/* ── 步骤说明 ── */
+.draft-step-desc {
+  text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--text-dim); padding: 6px 0;
+  flex-shrink: 0;
+}
+
+/* ── 先后手标识 ── */
+.draft-first-badge {
+  font-size: 11px; color: var(--text-dim);
+  display: flex; align-items: center; gap: 6px;
+}
+.draft-seal-hint {
+  font-size: 10px; color: var(--gold-dim);
+}
+
+/* ── 单个神器格子 ── */
+.draft-cell {
+  position: relative; border-radius: 8px;
+  border: 2px solid var(--border-light);
+  background: var(--surface);
+  overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  transition: all 0.2s;
+  cursor: default;
+}
+.draft-cell.can-pick {
+  border-color: rgba(201, 160, 80, 0.3);
+  cursor: pointer;
+}
+.draft-cell.can-pick:hover {
+  border-color: var(--gold);
+  transform: scale(1.03);
+  box-shadow: 0 0 20px rgba(201, 160, 80, 0.15);
+  z-index: 2;
+}
+.draft-cell.used {
+  opacity: 0.4; filter: grayscale(0.5);
+}
+.draft-cell.owner-player {
+  opacity: 0.85; filter: none;
+  border-color: rgba(201, 160, 80, 0.5);
+  box-shadow: 0 0 12px rgba(201, 160, 80, 0.2);
+}
+.draft-cell.owner-opponent {
+  opacity: 0.5; filter: grayscale(0.6);
+  border-color: rgba(139, 94, 168, 0.4);
+}
+.draft-cell.owner-banned {
+  opacity: 0.35; filter: grayscale(0.8);
+  border-color: rgba(200, 60, 60, 0.4);
+}
+.draft-cell.empty {
+  background: transparent; border: 1px dashed var(--border-light);
+  opacity: 0.3;
+}
+.draft-cell-img {
+  width: 100%; height: 100%; object-fit: cover;
+  position: absolute; inset: 0;
+}
+.draft-cell-name {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  text-align: center; font-size: 11px; font-weight: 600;
+  padding: 3px 0; color: var(--text-bright);
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  z-index: 1;
+}
+.draft-cell-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.draft-cell-overlay.ban {
+  background: rgba(200, 60, 60, 0.15);
+}
+.draft-cell-overlay.pick {
+  background: rgba(0, 0, 0, 0.1);
+}
+.draft-cell-owner {
+  font-size: 14px; font-weight: 700; padding: 4px 16px; border-radius: 20px;
+  background: rgba(0, 0, 0, 0.7); color: var(--gold);
+  letter-spacing: 0.06em;
+}
+.draft-cell-overlay.ban .draft-cell-owner {
+  color: #f87171;
+}
+.draft-cell-hint {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+  background: rgba(201, 160, 80, 0.2); color: var(--gold);
+  opacity: 0; transition: opacity 0.2s;
+}
+.draft-cell-hint.ban-hint {
+  background: rgba(200, 60, 60, 0.2); color: #f87171;
+}
+.draft-cell.can-pick:hover .draft-cell-hint {
+  opacity: 1;
+}
+
+/* ── 右侧已选面板 ── */
+.draft-picks-panel {
+  width: 260px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 16px;
+  overflow-y: auto;
+}
+.draft-picks-section {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.draft-picks-title {
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.draft-picks-list {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.draft-pick-slot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  min-height: 52px;
+}
+.draft-pick-slot.filled {
+  border-color: rgba(201, 160, 80, 0.2);
+  background: var(--gold-ghost);
+}
+.draft-pick-slot-img {
+  width: 56px; height: 38px; border-radius: 4px; object-fit: cover;
+  flex-shrink: 0;
+}
+.draft-pick-slot-name {
+  font-size: 13px; font-weight: 600; color: var(--text-bright);
+}
+.draft-pick-slot-empty {
+  font-size: 12px; color: var(--text-dim);
+}
+
+/* ── 被ban神器列表 ── */
+.draft-picks-title.banned-title {
+  color: #f87171;
+}
+.draft-banned-list {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.draft-banned-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 6px;
+  border: 1px solid rgba(200, 60, 60, 0.2);
+  background: rgba(200, 60, 60, 0.05);
+}
+.draft-banned-img {
+  width: 40px; height: 28px; border-radius: 3px; object-fit: cover;
+  opacity: 0.5; flex-shrink: 0;
+}
+.draft-banned-name {
+  font-size: 12px; color: var(--text-dim);
+}
+
+/* ── 脉冲动画 ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
