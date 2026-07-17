@@ -12,7 +12,7 @@
 import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { getArtifactImage } from '../game/artifacts';
-import type { Artifact, ArtifactColumn } from '../types/game';
+import type { ArtifactColumn, ArtifactDef } from '../types/game';
 
 const COL_LABELS = ['第一列 · 速度/意志', '第二列 · 骰点分布', '第三列 · 生命/充能'];
 
@@ -68,7 +68,7 @@ export const DraftPage: React.FC = () => {
   })();
 
   /* ── 按列组织神器（3列 × 3行） ── */
-  const cols: Artifact[][] = [
+  const cols: ArtifactDef[][] = [
     draft.pool.filter((a) => a.column === 0),
     draft.pool.filter((a) => a.column === 1),
     draft.pool.filter((a) => a.column === 2),
@@ -84,7 +84,7 @@ export const DraftPage: React.FC = () => {
   };
 
   /* ── 判断神器是否可选 ── */
-  const canPick = (artifact: Artifact): boolean => {
+  const canPick = (artifact: ArtifactDef): boolean => {
     if (!isPlayerTurn) return false;
     if (usedIds.has(artifact.id)) return false;
 
@@ -115,7 +115,7 @@ export const DraftPage: React.FC = () => {
   };
 
   /* ── 点击神器 ── */
-  const handleClick = (artifact: Artifact) => {
+  const handleClick = (artifact: ArtifactDef) => {
     if (!isPlayerTurn) return;
     if (usedIds.has(artifact.id)) return;
     draftAction(artifact.id);

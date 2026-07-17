@@ -3,10 +3,12 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import { create } from 'zustand';
-import type { GameState, GamePhase, PlayerState, RoomState, Artifact, ArtifactColumn } from '../../shared/types';
+import type { GameState, GamePhase, PlayerState, RoomState, Artifact, ArtifactColumn, ArtifactDef } from '../../shared/types';
+import { createArtifactInstance } from '../types/game';
 import { ALL_ARTIFACTS, getArtifactById } from '../game/artifacts';
+import { artifactRegistry } from '../game/artifactRegistry';
 import { performInitialRoll, performInitialReroll, skipAwakening, checkGameOver, switchPlayer } from '../game/engine';
-import { processAttack } from '../game/combat';
+import { executeSkillsByType, getSkillFn, buildSkillContext, type SkillContext, type SkillResult } from '../game/skills';
 
 /* ── UI 页面类型 ── */
 export type Screen = 'home' | 'lobby' | 'room' | 'draft' | 'game';
@@ -23,19 +25,19 @@ export type ModalType = 'multiplayer' | 'join' | 'create' | 'single' | null;
  * ─────────────────────────────────────────────────────────── */
 export interface DraftState {
   /** 随机选出的9件神器池（3列 × 3件） */
-  pool: Artifact[];
+  pool: ArtifactDef[];
   /** 子步骤 (0-6)，0=先手ban, 1=后手选同列, 2=先手选, 3=后手选列A, 4=后手选列B, 5=先手选最后, 6=完成 */
   subStep: number;
   /** 先手玩家 */
   firstPlayer: 'player' | 'opponent';
   /** 步骤1中被ban的神器 */
-  bannedArtifact: Artifact | null;
+  bannedArtifact: ArtifactDef | null;
   /** 玩家已选神器 */
-  playerPicks: Artifact[];
+  playerPicks: ArtifactDef[];
   /** 对手已选神器 */
-  opponentPicks: Artifact[];
+  opponentPicks: ArtifactDef[];
   /** 最终被ban的2件 */
-  finalBanned: Artifact[];
+  finalBanned: ArtifactDef[];
 }
 
 /* ── 辅助: 随机打乱数组 ── */
@@ -49,7 +51,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /* ── 辅助: 获取玩家缺失的列 ── */
-function getMissingColumns(picks: Artifact[]): ArtifactColumn[] {
+function getMissingColumns(picks: ArtifactDef[]): ArtifactColumn[] {
   const have = new Set(picks.map((a) => a.column));
   return ([0, 1, 2] as ArtifactColumn[]).filter((c) => !have.has(c));
 }
@@ -100,6 +102,14 @@ interface GameStore extends GameState {
   clearSelection: () => void;
   doAttack: (defenseDiceId?: string) => void;
   advancePhase: () => void;
+
+  // 技能系统操作
+  /** 执行一个主动技能 */
+  useSkill: (skillId: string) => SkillResult;
+  /** 获取当前玩家可用的技能列表 */
+  getAvailableSkills: () => { skillId: string; name: string; description: string; canExecute: boolean }[];
+  /** 构建技能上下文，用于技能函数调用 */
+  getSkillContext: () => SkillContext;
 }
 
 /** 创建默认玩家 */
@@ -111,21 +121,26 @@ function createPlayer(
   col3Id: string,
   hasDustSeal: boolean = false
 ): PlayerState {
-  const c1 = getArtifactById(col1Id)!;
-  const c2 = getArtifactById(col2Id)!;
-  const c3 = getArtifactById(col3Id)!;
+  const c1 = getArtifactById(col1Id);
+  const c2 = getArtifactById(col2Id);
+  const c3 = getArtifactById(col3Id);
+  if (!c1 || !c2 || !c3) throw new Error(`神器不存在: ${col1Id}, ${col2Id}, ${col3Id}`);
 
   return {
     playerId: id,
     name,
-    artifacts: [c1, c2, c3],
+    artifacts: [
+      createArtifactInstance(c1),
+      createArtifactInstance(c2),
+      createArtifactInstance(c3),
+    ] as [Artifact, Artifact, Artifact],
     zone: { defense: [], attack: [], meditation: [] },
     speed: c1.speed,
     will: c1.will,
     life: c3.life,
     attackBonus: 0,
     hasDustSeal,
-    chargeCount: c3.chargeCount,
+    chargeCount: c3.chargeRequirement,
   };
 }
 
@@ -336,7 +351,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const opponentPicksFinal = isFirst ? secondPicks : newFirst;
 
         // 按列排序：第一列/第二列/第三列
-        const sortByCol = (arr: Artifact[]) => [...arr].sort((a, b) => a.column - b.column);
+        const sortByCol = (arr: ArtifactDef[]) => [...arr].sort((a, b) => a.column - b.column);
         const p = sortByCol(playerPicksFinal);
         const o = sortByCol(opponentPicksFinal);
 
@@ -444,11 +459,63 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (selectedAttackDice.length === 0) return;
 
-    const result = processAttack(attacker, defender, selectedAttackDice, defenseDiceId || null);
+    /* 移除攻击骰子 */
+    const attackIds = new Set(selectedAttackDice.map((d) => d.id));
+    const updatedAttacker = {
+      ...attacker,
+      zone: {
+        ...attacker.zone,
+        attack: attacker.zone.attack.filter((d) => !attackIds.has(d.id)),
+      },
+    };
+
+    /* 防御判定 */
+    let updatedDefender = { ...defender };
+    let baseDamage = selectedAttackDice.reduce((sum, d) => sum + d.value, 0) + attacker.attackBonus;
+    let blocked = false;
+
+    if (defenseDiceId) {
+      updatedDefender = {
+        ...updatedDefender,
+        zone: {
+          ...updatedDefender.zone,
+          defense: updatedDefender.zone.defense.filter((d) => d.id !== defenseDiceId),
+        },
+      };
+      baseDamage = 0;
+      blocked = true;
+    }
+
+    /* 构建技能上下文 */
+    const skillCtx = buildSkillContext(state, updatedAttacker, updatedDefender, {
+      attackDice: selectedAttackDice,
+      damage: baseDamage,
+      defenseDiceId: defenseDiceId || undefined,
+    });
+
+    /* 执行攻击方的触发技能（如影掠：额外伤害） */
+    const triggerResult = executeSkillsByType(skillCtx, 'trigger');
+
+    /* 执行防御方的持续技能（如金刚：减伤，孤塔：额外护盾） */
+    const continuousResult = executeSkillsByType(
+      { ...skillCtx, owner: updatedDefender, opponent: updatedAttacker },
+      'continuous'
+    );
+
+    /* 应用技能加成 */
+    const bonusDamage = (triggerResult.bonusDamage || 0);
+    const damageReduction = (continuousResult.damageReduction || 0);
+    const finalDamage = Math.max(0, baseDamage + bonusDamage - damageReduction);
+
+    /* 应用伤害 */
+    updatedDefender = {
+      ...updatedDefender,
+      life: Math.max(0, updatedDefender.life - finalDamage),
+    };
 
     const newState: Partial<GameState> = isPlayer
-      ? { player: result.attacker, opponent: result.defender }
-      : { player: result.defender, opponent: result.attacker };
+      ? { player: updatedAttacker, opponent: updatedDefender }
+      : { player: updatedDefender, opponent: updatedAttacker };
 
     set({ ...newState, selectedDiceIds: [] });
   },
@@ -461,10 +528,110 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const next = phaseOrder[idx + 1];
       if (next === 'end') {
         const switched = switchPlayer(state);
-        set({ ...switched, phase: 'replenish' });
+
+        /* 回合结束 → 切换玩家 → 新回合开始，触发回合开始技能 */
+        const newPlayer = switched.currentPlayerId === switched.player.playerId
+          ? switched.player
+          : switched.opponent;
+        const newOpponent = switched.currentPlayerId === switched.player.playerId
+          ? switched.opponent
+          : switched.player;
+
+        const skillCtx = buildSkillContext(
+          switched as GameState,
+          newPlayer,
+          newOpponent
+        );
+
+        /* 新回合开始的触发技能（如邪灵：敌方尘落+1） */
+        const roundStartResult = executeSkillsByType(skillCtx, 'trigger');
+        let updatedSwitched = { ...switched };
+
+        if (roundStartResult.dustFallDelta) {
+          updatedSwitched.dustFallCounter = (switched.dustFallCounter || 0) + roundStartResult.dustFallDelta;
+        }
+
+        set({ ...updatedSwitched, phase: 'replenish' });
       } else {
         set({ phase: next });
       }
     }
+  },
+
+  /* ── 技能系统操作 ── */
+
+  /** 构建技能上下文 */
+  getSkillContext: () => {
+    const state = get();
+    const isPlayer = state.currentPlayerId === state.player.playerId;
+    return buildSkillContext(
+      state,
+      isPlayer ? state.player : state.opponent,
+      isPlayer ? state.opponent : state.player
+    );
+  },
+
+  /** 执行一个主动技能 */
+  useSkill: (skillId: string) => {
+    const state = get();
+    const isPlayer = state.currentPlayerId === state.player.playerId;
+    const owner = isPlayer ? state.player : state.opponent;
+    const opponent = isPlayer ? state.opponent : state.player;
+
+    const fn = getSkillFn(skillId);
+    if (!fn) {
+      return { canExecute: false, message: '未知技能' };
+    }
+
+    const ctx = buildSkillContext(state, owner, opponent);
+    const result = fn(ctx);
+
+    if (!result.canExecute) {
+      return result;
+    }
+
+    /* 应用技能结果到状态 */
+    const updatedOwner = result.owner
+      ? { ...owner, ...result.owner }
+      : owner;
+    const updatedOpponent = result.opponent
+      ? { ...opponent, ...result.opponent }
+      : opponent;
+
+    const newState: Partial<GameState> = isPlayer
+      ? { player: updatedOwner, opponent: updatedOpponent }
+      : { player: updatedOpponent, opponent: updatedOwner };
+
+    set(newState);
+    return result;
+  },
+
+  /** 获取当前玩家可用的主动技能列表 */
+  getAvailableSkills: () => {
+    const state = get();
+    const isPlayer = state.currentPlayerId === state.player.playerId;
+    const owner = isPlayer ? state.player : state.opponent;
+    const opponent = isPlayer ? state.opponent : state.player;
+    const ctx = buildSkillContext(state, owner, opponent);
+
+    const available: { skillId: string; name: string; description: string; canExecute: boolean }[] = [];
+
+    for (const artifact of owner.artifacts) {
+      if (!artifact) continue;
+      for (const skill of artifact.skills) {
+        if (skill.type !== 'active') continue;
+        const fn = getSkillFn(skill.skillId);
+        if (!fn) continue;
+        const check = fn(ctx);
+        available.push({
+          skillId: skill.skillId,
+          name: skill.name,
+          description: skill.description,
+          canExecute: check.canExecute !== false,
+        });
+      }
+    }
+
+    return available;
   },
 }));

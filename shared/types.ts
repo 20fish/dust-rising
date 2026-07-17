@@ -21,23 +21,90 @@ export type ArtifactColumn = 0 | 1 | 2;
 export type SkillType = 'active' | 'continuous' | 'trigger' | 'onActivate' | 'onCharge';
 
 export interface Skill {
+  /** 技能唯一ID，对应 SKILL_REGISTRY 中的键 */
+  skillId: string;
   name: string;
   type: SkillType;
   description: string;
 }
 
-export interface Artifact {
+/* ═══════════════════════════════════════════════════════════
+ *  神器定义（静态数据，不与运行时状态耦合）
+ *  这是创意工坊中玩家可自定义的完整数据结构
+ * ═══════════════════════════════════════════════════════════ */
+
+/** 神器属性预算约束 */
+export const ARTIFACT_BUDGET = {
+  /** 速度+意志 总点数上限 */
+  SPEED_WILL_MAX: 11,
+  /** 生命值上限 */
+  LIFE_MAX: 15,
+  /** 充能需求上限 */
+  CHARGE_MAX: 5,
+  /** 充能需求下限 */
+  CHARGE_MIN: 2,
+  /** 技能数量上限 */
+  SKILL_MAX: 1,
+  /** 每列可注册神器数上限 */
+  PER_COLUMN_MAX: 6,
+} as const;
+
+/** 神器来源 */
+export type ArtifactSource = 'builtin' | 'custom';
+
+/** 神器定义 — 静态数据，不含运行时状态 */
+export interface ArtifactDef {
+  /** 唯一ID，内置神器用英文slug，自定义神器用 UUID */
   id: string;
+  /** 显示名称 */
   name: string;
+  /** 所属列 */
   column: ArtifactColumn;
+  /** 来源 */
+  source: ArtifactSource;
+  /** 数据版本号，用于未来迁移 */
+  version: number;
+
+  /* ── 属性 ── */
   speed: number;
   will: number;
   life: number;
   chargeRequirement: number;
+
+  /* ── 骰点分布 ── */
   diceDistribution: DiceDistribution;
+
+  /* ── 技能 ── */
   skills: Skill[];
+
+  /* ── 视觉 ── */
+  /** 图片文件名（不含路径和扩展名），如 '空'/'影'/'战鬼'，自定义神器用 UUID */
+  imageKey: string;
+
+  /* ── 元数据（创意工坊用） ── */
+  /** 作者名（内置神器为空） */
+  author?: string;
+  /** 创作时间戳 */
+  createdAt?: number;
+  /** 标签 */
+  tags?: string[];
+}
+
+/** 神器实例 — 运行时状态（战斗中的具体一件神器） */
+export interface Artifact extends ArtifactDef {
+  /** 是否处于激活状态 */
   isActive: boolean;
+  /** 当前充能计数 */
   chargeCount: number;
+}
+
+/** 从 ArtifactDef 创建运行时实例 */
+export function createArtifactInstance(def: ArtifactDef): Artifact {
+  return {
+    ...def,
+    isActive: false,
+    chargeCount: 0,
+  };
 }
 
 /** 骰子区域 */
