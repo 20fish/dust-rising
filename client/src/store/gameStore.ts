@@ -9,6 +9,7 @@ import { ALL_ARTIFACTS, getArtifactById } from '../game/artifacts';
 import { artifactRegistry } from '../game/artifactRegistry';
 import { performInitialRoll, performInitialReroll, skipAwakening, checkGameOver, switchPlayer } from '../game/engine';
 import { executeSkillsByType, getSkillFn, buildSkillContext, type SkillContext, type SkillResult } from '../game/skills';
+import { sendDraftAction } from '../network/socket';
 
 /* ── UI 页面类型 ── */
 export type Screen = 'home' | 'lobby' | 'room' | 'draft' | 'game';
@@ -28,8 +29,8 @@ export interface DraftState {
   pool: ArtifactDef[];
   /** 子步骤 (0-6)，0=先手ban, 1=后手选同列, 2=先手选, 3=后手选列A, 4=后手选列B, 5=先手选最后, 6=完成 */
   subStep: number;
-  /** 先手玩家 */
-  firstPlayer: 'player' | 'opponent';
+  /** 先手玩家 socket.id */
+  firstPlayerId: string;
   /** 步骤1中被ban的神器 */
   bannedArtifact: ArtifactDef | null;
   /** 玩家已选神器 */
@@ -38,16 +39,6 @@ export interface DraftState {
   opponentPicks: ArtifactDef[];
   /** 最终被ban的2件 */
   finalBanned: ArtifactDef[];
-}
-
-/* ── 辅助: 随机打乱数组 ── */
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 /* ── 辅助: 获取玩家缺失的列 ── */
@@ -60,6 +51,7 @@ interface GameStore extends GameState {
   /* ── 网络状态 ── */
   isConnected: boolean;
   roomId: string | null;
+  socketId: string;
 
   /* ── UI 页面管理 ── */
   screen: Screen;
@@ -71,6 +63,8 @@ interface GameStore extends GameState {
 
   /* ── 轮选状态 ── */
   draft: DraftState;
+  /** 预览中的神器ID（弹窗用） */
+  previewArtifactId: string | null;
 
   // UI 操作
   setScreen: (screen: Screen) => void;
@@ -80,13 +74,23 @@ interface GameStore extends GameState {
   setCurrentRoom: (room: RoomState | null) => void;
   setPlayerName: (name: string) => void;
   setJoinRoomCode: (code: string) => void;
+  setSocketId: (id: string) => void;
 
   // 轮选操作
-  initDraft: () => void;
-  /** 当前轮选动作：ban或pick */
+  /** 从服务端数据初始化轮选 */
+  initDraft: (pool: ArtifactDef[], firstPlayerId: string) => void;
+  /** 当前轮选动作：ban或pick (本地执行 + 网络同步) */
   draftAction: (artifactId: string) => void;
+  /** 应用对手的轮选动作 */
+  applyDraftAction: (artifactId: string, subStep: number, actionType: 'ban' | 'pick') => void;
   /** 获取所有已选/ban神器ID集合 */
   getUsedIds: () => Set<string>;
+  /** 预览神器 */
+  setPreviewArtifact: (artifactId: string | null) => void;
+  /** 确认预览选择 */
+  confirmPreview: () => void;
+  /** 取消预览 */
+  cancelPreview: () => void;
 
   // 游戏操作
   initGame: (preset?: string) => void;
@@ -104,11 +108,8 @@ interface GameStore extends GameState {
   advancePhase: () => void;
 
   // 技能系统操作
-  /** 执行一个主动技能 */
   useSkill: (skillId: string) => SkillResult;
-  /** 获取当前玩家可用的技能列表 */
   getAvailableSkills: () => { skillId: string; name: string; description: string; canExecute: boolean }[];
-  /** 构建技能上下文，用于技能函数调用 */
   getSkillContext: () => SkillContext;
 }
 
@@ -159,6 +160,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ── 网络状态 ──
   isConnected: false,
   roomId: null,
+  socketId: '',
 
   // ── UI 页面状态 ──
   screen: 'home',
@@ -172,12 +174,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   draft: {
     pool: [],
     subStep: 0,
-    firstPlayer: 'player',
+    firstPlayerId: '',
     bannedArtifact: null,
     playerPicks: [],
     opponentPicks: [],
     finalBanned: [],
   },
+  previewArtifactId: null,
 
   // ── UI 操作 ──
   setScreen: (screen) => set({ screen }),
@@ -187,26 +190,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setCurrentRoom: (room) => set({ currentRoom: room }),
   setPlayerName: (name) => set({ playerName: name }),
   setJoinRoomCode: (code) => set({ joinRoomCode: code }),
+  setSocketId: (id) => set({ socketId: id }),
 
   // ── 轮选操作 ──
 
-  /** 初始化轮选：每列随机选3件，随机决定先后手 */
-  initDraft: () => {
-    // 从3列中每列随机选3件
-    const pool: Artifact[] = [];
-    for (const col of [0, 1, 2] as ArtifactColumn[]) {
-      const colArtifacts = ALL_ARTIFACTS.filter((a) => a.column === col);
-      const selected = shuffle(colArtifacts).slice(0, 3);
-      pool.push(...selected);
-    }
-    // 随机先后手
-    const firstPlayer: 'player' | 'opponent' = Math.random() < 0.5 ? 'player' : 'opponent';
-
+  /** 从服务端数据初始化轮选 */
+  initDraft: (pool, firstPlayerId) => {
     set({
       draft: {
         pool,
         subStep: 0,
-        firstPlayer,
+        firstPlayerId,
         bannedArtifact: null,
         playerPicks: [],
         opponentPicks: [],
@@ -226,9 +220,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return ids;
   },
 
+  /** 预览神器 */
+  setPreviewArtifact: (artifactId) => set({ previewArtifactId: artifactId }),
+
+  /** 确认预览选择 */
+  confirmPreview: () => {
+    const { previewArtifactId } = get();
+    if (previewArtifactId) {
+      get().draftAction(previewArtifactId);
+      set({ previewArtifactId: null });
+    }
+  },
+
+  /** 取消预览 */
+  cancelPreview: () => set({ previewArtifactId: null }),
+
   /** 轮选动作：根据当前 subStep 自动判断是 ban 还是 pick */
   draftAction: (artifactId: string) => {
-    const { draft } = get();
+    const { draft, socketId, currentRoom } = get();
     const artifact = draft.pool.find((a) => a.id === artifactId);
     if (!artifact) return;
 
@@ -236,20 +245,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const used = get().getUsedIds();
     if (used.has(artifactId)) return;
 
-    const isFirst = draft.firstPlayer === 'player';
+    const isFirst = draft.firstPlayerId === socketId;
     const firstPicks = isFirst ? draft.playerPicks : draft.opponentPicks;
     const secondPicks = isFirst ? draft.opponentPicks : draft.playerPicks;
+
+    const actionType = draft.subStep === 0 ? 'ban' : 'pick';
 
     switch (draft.subStep) {
       /* ── 步骤1: 先手 ban 1件 ── */
       case 0: {
-        set({
-          draft: {
-            ...draft,
-            bannedArtifact: artifact,
-            subStep: 1,
-          },
-        });
+        const newDraft = {
+          ...draft,
+          bannedArtifact: artifact,
+          subStep: 1,
+        };
+        set({ draft: newDraft });
+        // 网络同步
+        if (currentRoom) {
+          sendDraftAction(currentRoom.roomCode, { artifactId, subStep: 1, actionType: 'ban' });
+        }
         break;
       }
 
@@ -269,49 +283,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const newFirst = [...firstPicks, other];
         const newSecond = [...secondPicks, artifact];
 
-        set({
-          draft: {
-            ...draft,
-            playerPicks: isFirst ? newFirst : newSecond,
-            opponentPicks: isFirst ? newSecond : newFirst,
-            subStep: 2,
-          },
-        });
+        const newDraft = {
+          ...draft,
+          playerPicks: isFirst ? newFirst : newSecond,
+          opponentPicks: isFirst ? newSecond : newFirst,
+          subStep: 2,
+        };
+        set({ draft: newDraft });
+        // 网络同步
+        if (currentRoom) {
+          sendDraftAction(currentRoom.roomCode, { artifactId, subStep: 2, actionType: 'pick' });
+        }
         break;
       }
 
       /* ── 步骤3: 先手从场上选1件 ── */
       case 2: {
-        // 先手已有一列(banned列)，可选任意列但不能重复已选列
         if (firstPicks.some((a) => a.column === artifact.column)) return;
 
         const newFirst = [...firstPicks, artifact];
-        set({
-          draft: {
-            ...draft,
-            playerPicks: isFirst ? newFirst : draft.playerPicks,
-            opponentPicks: isFirst ? draft.opponentPicks : newFirst,
-            subStep: 3,
-          },
-        });
+        const newDraft = {
+          ...draft,
+          playerPicks: isFirst ? newFirst : draft.playerPicks,
+          opponentPicks: isFirst ? draft.opponentPicks : newFirst,
+          subStep: 3,
+        };
+        set({ draft: newDraft });
+        if (currentRoom) {
+          sendDraftAction(currentRoom.roomCode, { artifactId, subStep: 3, actionType: 'pick' });
+        }
         break;
       }
 
       /* ── 步骤4a: 后手从剩余列选第一件 ── */
       case 3: {
-        // 后手只能选自己缺少的列，且不能和被ban列相同
         const secondMissing = getMissingColumns(secondPicks);
         if (!secondMissing.includes(artifact.column)) return;
 
         const newSecond = [...secondPicks, artifact];
-        set({
-          draft: {
-            ...draft,
-            playerPicks: isFirst ? draft.playerPicks : newSecond,
-            opponentPicks: isFirst ? newSecond : draft.opponentPicks,
-            subStep: 4,
-          },
-        });
+        const newDraft = {
+          ...draft,
+          playerPicks: isFirst ? draft.playerPicks : newSecond,
+          opponentPicks: isFirst ? newSecond : draft.opponentPicks,
+          subStep: 4,
+        };
+        set({ draft: newDraft });
+        if (currentRoom) {
+          sendDraftAction(currentRoom.roomCode, { artifactId, subStep: 4, actionType: 'pick' });
+        }
         break;
       }
 
@@ -321,14 +340,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (!secondMissing.includes(artifact.column)) return;
 
         const newSecond = [...secondPicks, artifact];
-        set({
-          draft: {
-            ...draft,
-            playerPicks: isFirst ? draft.playerPicks : newSecond,
-            opponentPicks: isFirst ? newSecond : draft.opponentPicks,
-            subStep: 5,
-          },
-        });
+        const newDraft = {
+          ...draft,
+          playerPicks: isFirst ? draft.playerPicks : newSecond,
+          opponentPicks: isFirst ? newSecond : draft.opponentPicks,
+          subStep: 5,
+        };
+        set({ draft: newDraft });
+        if (currentRoom) {
+          sendDraftAction(currentRoom.roomCode, { artifactId, subStep: 5, actionType: 'pick' });
+        }
         break;
       }
 
@@ -356,8 +377,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const o = sortByCol(opponentPicksFinal);
 
         // 后手得尘起标记
-        const secondIsDustSeal = draft.firstPlayer === 'player' ? 'opponent' : 'player';
-        const playerHasSeal = secondIsDustSeal === 'player';
+        const playerHasSeal = draft.firstPlayerId !== socketId;
 
         set({
           draft: {
@@ -378,6 +398,121 @@ export const useGameStore = create<GameStore>((set, get) => ({
           winnerId: null,
           screen: 'game',
         });
+        if (currentRoom) {
+          sendDraftAction(currentRoom.roomCode, { artifactId, subStep: 6, actionType: 'pick' });
+        }
+        break;
+      }
+    }
+  },
+
+  /** 应用对手的轮选动作 */
+  applyDraftAction: (artifactId, subStep, actionType) => {
+    const { draft, socketId } = get();
+    const artifact = draft.pool.find((a) => a.id === artifactId);
+    if (!artifact) return;
+
+    const isThisFirst = draft.firstPlayerId === socketId;
+    const isOpponentFirst = !isThisFirst;
+
+    switch (actionType) {
+      case 'ban': {
+        set({
+          draft: {
+            ...draft,
+            bannedArtifact: artifact,
+            subStep,
+          },
+        });
+        break;
+      }
+      case 'pick': {
+        // 对手的 pick 需要根据当前步骤推断
+        if (subStep === 2) {
+          // 步骤2: 对手选了同列1件，我方自动得另一件
+          const other = draft.pool.find(
+            (a) =>
+              a.column === draft.bannedArtifact!.column &&
+              a.id !== artifactId &&
+              a.id !== draft.bannedArtifact!.id
+          );
+          if (!other) return;
+
+          const newFirst = isThisFirst ? [...draft.playerPicks, other] : [...draft.opponentPicks, other];
+          const newSecond = isThisFirst ? [...draft.opponentPicks, artifact] : [...draft.playerPicks, artifact];
+
+          set({
+            draft: {
+              ...draft,
+              playerPicks: isThisFirst ? newFirst : newSecond,
+              opponentPicks: isThisFirst ? newSecond : newFirst,
+              subStep,
+            },
+          });
+        } else if (subStep === 3) {
+          // 先手选了一件
+          const picks = isOpponentFirst ? draft.opponentPicks : draft.playerPicks;
+          const newPicks = [...picks, artifact];
+          set({
+            draft: {
+              ...draft,
+              playerPicks: isOpponentFirst ? draft.playerPicks : newPicks,
+              opponentPicks: isOpponentFirst ? newPicks : draft.opponentPicks,
+              subStep,
+            },
+          });
+        } else if (subStep === 4 || subStep === 5) {
+          // 后手选了一件
+          const picks = isOpponentFirst ? draft.playerPicks : draft.opponentPicks;
+          const newPicks = [...picks, artifact];
+          set({
+            draft: {
+              ...draft,
+              playerPicks: isOpponentFirst ? newPicks : draft.playerPicks,
+              opponentPicks: isOpponentFirst ? draft.opponentPicks : newPicks,
+              subStep,
+            },
+          });
+        } else if (subStep === 6) {
+          // 最后一步，对手选完
+          const picks = isOpponentFirst ? draft.playerPicks : draft.opponentPicks;
+          const newPicks = [...picks, artifact];
+          const finalP = isOpponentFirst ? newPicks : draft.playerPicks;
+          const finalO = isOpponentFirst ? draft.opponentPicks : newPicks;
+
+          const allUsed = new Set<string>([
+            ...(draft.bannedArtifact ? [draft.bannedArtifact.id] : []),
+            ...finalP.map((a) => a.id),
+            ...finalO.map((a) => a.id),
+          ]);
+          const finalBanned = draft.pool.filter((a) => !allUsed.has(a.id));
+
+          const sortByCol = (arr: ArtifactDef[]) => [...arr].sort((a, b) => a.column - b.column);
+          const p = sortByCol(finalP);
+          const o = sortByCol(finalO);
+
+          const playerHasSeal = draft.firstPlayerId !== socketId;
+
+          set({
+            draft: {
+              ...draft,
+              playerPicks: finalP,
+              opponentPicks: finalO,
+              finalBanned,
+              subStep: 6,
+            },
+            player: createPlayer('player', get().playerName || '玩家', p[0].id, p[1].id, p[2].id, playerHasSeal),
+            opponent: createPlayer('opponent', '对手', o[0].id, o[1].id, o[2].id, !playerHasSeal),
+            currentPlayerId: 'player',
+            phase: 'initialRoll',
+            round: 1,
+            dustFallCounter: 0,
+            selectedDiceIds: [],
+            isGameOver: false,
+            winnerId: null,
+            screen: 'game',
+          });
+        }
         break;
       }
     }
@@ -529,7 +664,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (next === 'end') {
         const switched = switchPlayer(state);
 
-        /* 回合结束 → 切换玩家 → 新回合开始，触发回合开始技能 */
         const newPlayer = switched.currentPlayerId === switched.player.playerId
           ? switched.player
           : switched.opponent;
@@ -543,7 +677,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
           newOpponent
         );
 
-        /* 新回合开始的触发技能（如邪灵：敌方尘落+1） */
         const roundStartResult = executeSkillsByType(skillCtx, 'trigger');
         let updatedSwitched = { ...switched };
 
@@ -560,7 +693,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   /* ── 技能系统操作 ── */
 
-  /** 构建技能上下文 */
   getSkillContext: () => {
     const state = get();
     const isPlayer = state.currentPlayerId === state.player.playerId;
@@ -571,7 +703,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
   },
 
-  /** 执行一个主动技能 */
   useSkill: (skillId: string) => {
     const state = get();
     const isPlayer = state.currentPlayerId === state.player.playerId;
@@ -590,7 +721,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return result;
     }
 
-    /* 应用技能结果到状态 */
     const updatedOwner = result.owner
       ? { ...owner, ...result.owner }
       : owner;
@@ -606,7 +736,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return result;
   },
 
-  /** 获取当前玩家可用的主动技能列表 */
   getAvailableSkills: () => {
     const state = get();
     const isPlayer = state.currentPlayerId === state.player.playerId;

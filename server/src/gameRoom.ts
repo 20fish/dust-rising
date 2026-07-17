@@ -3,7 +3,28 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { RoomState, GameMode } from '../../shared/types';
+import type { RoomState, GameMode, ArtifactDef, ArtifactColumn } from '../../shared/types';
+
+/** 轮选状态（服务端权威） */
+export interface ServerDraftState {
+  /** 随机选出的9件神器定义（3列 × 3件） */
+  pool: ArtifactDef[];
+  /** 先手玩家 socket.id */
+  firstPlayer: string;
+  /** 当前子步骤 (0-6) */
+  subStep: number;
+  /** 步骤1中被ban的神器 */
+  bannedArtifact: ArtifactDef | null;
+  /** 先手已选神器 */
+  firstPicks: ArtifactDef[];
+  /** 后手已选神器 */
+  secondPicks: ArtifactDef[];
+  /** 最终被ban的2件 */
+  finalBanned: ArtifactDef[];
+}
+
+/** 房间扩展数据（存储在内存中） */
+const roomDraftStates: Map<string, ServerDraftState> = new Map();
 
 /** 生成4位数房间号 */
 function generateRoomCode(): string {
@@ -103,6 +124,69 @@ export function updateRoomStatus(roomId: string, status: RoomState['status']): v
     room.status = status;
     console.log(`[房间] ${room.roomCode} 状态: ${status}`);
   }
+}
+
+/** 设置玩家准备状态 */
+export function setPlayerReady(roomCode: string, playerId: string): boolean {
+  const room = getRoomByCode(roomCode);
+  if (!room) return false;
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return false;
+  player.ready = true;
+  console.log(`[房间] ${room.roomCode} ${player.name} 已准备`);
+  return true;
+}
+
+/** 检查是否所有玩家都已准备 */
+export function allPlayersReady(roomCode: string): boolean {
+  const room = getRoomByCode(roomCode);
+  if (!room) return false;
+  return room.players.length >= 2 && room.players.every(p => p.ready);
+}
+
+/* ── 轮选相关 ── */
+
+/** 服务端生成轮选状态 */
+export function generateDraftState(roomCode: string, allArtifacts: ArtifactDef[]): ServerDraftState | null {
+  const room = getRoomByCode(roomCode);
+  if (!room) return null;
+
+  // 每列随机选3件神器
+  const getCol = (c: ArtifactColumn) => allArtifacts.filter(a => a.column === c);
+  const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+
+  const pool = [
+    ...shuffle(getCol(0)).slice(0, 3),
+    ...shuffle(getCol(1)).slice(0, 3),
+    ...shuffle(getCol(2)).slice(0, 3),
+  ];
+
+  // 随机决定先后手
+  const firstPlayer = Math.random() < 0.5 ? room.players[0].id : room.players[1].id;
+
+  const state: ServerDraftState = {
+    pool,
+    firstPlayer,
+    subStep: 0,
+    bannedArtifact: null,
+    firstPicks: [],
+    secondPicks: [],
+    finalBanned: [],
+  };
+
+  roomDraftStates.set(roomCode, state);
+  console.log(`[轮选] ${roomCode} 先手: ${firstPlayer}, pool: ${pool.map(a => a.name).join(',')}`);
+  return state;
+}
+
+/** 获取轮选状态 */
+export function getDraftState(roomCode: string): ServerDraftState | undefined {
+  return roomDraftStates.get(roomCode);
+}
+
+/** 更新轮选状态 */
+export function updateDraftState(roomCode: string, state: ServerDraftState): void {
+  roomDraftStates.set(roomCode, state);
 }
 
 /** 清理过期房间 (超过30分钟) */

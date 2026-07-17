@@ -1,13 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
  * 服务端入口 - Express + Socket.io
- * 支持房间创建、加入、大厅、和对战数据同步
+ * 支持房间创建、加入、大厅、准备系统、轮选同步和对战数据同步
  * ═══════════════════════════════════════════════════════════ */
 
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../../shared/types';
-import { createRoom, joinRoomByCode, getRoom, getRoomByCode, getAvailableRooms, updateRoomStatus } from './gameRoom';
+import {
+  createRoom, joinRoomByCode, getRoom, getRoomByCode, getAvailableRooms, updateRoomStatus,
+  setPlayerReady, allPlayersReady, generateDraftState, getDraftState, updateDraftState,
+} from './gameRoom';
+import { BUILTIN_ARTIFACTS } from '../../shared/artifactData';
 
 const app = express();
 const httpServer = createServer(app);
@@ -83,14 +87,79 @@ io.on('connection', (socket) => {
     broadcastRoomList();
   });
 
+  /** 玩家准备 */
+  socket.on('player_ready', (data) => {
+    const ok = setPlayerReady(data.roomCode, socket.id);
+    if (ok) {
+      // 广播准备状态
+      io.to(data.roomCode).emit('player_ready_update', { playerId: socket.id, ready: true });
+      console.log(`[准备] ${data.roomCode} ${socket.id} 已准备`);
+    }
+  });
+
   /** 开始游戏 */
   socket.on('start_game', (data) => {
     const room = getRoomByCode(data.roomCode);
-    if (room && room.hostId === socket.id) {
-      updateRoomStatus(room.roomId, 'playing');
-      io.to(data.roomCode).emit('game_started', { roomId: room.roomId });
-      broadcastRoomList();
+    if (!room || room.hostId !== socket.id) return;
+
+    // 检查是否所有玩家都已准备
+    if (!allPlayersReady(data.roomCode)) {
+      console.log(`[房间] ${data.roomCode} 有玩家未准备，无法开始`);
+      return;
     }
+
+    updateRoomStatus(room.roomId, 'playing');
+
+    // 服务端生成轮选状态
+    const draftState = generateDraftState(data.roomCode, BUILTIN_ARTIFACTS);
+    if (!draftState) return;
+
+    // 广播游戏开始，附带轮选数据
+    io.to(data.roomCode).emit('game_started', {
+      roomId: room.roomId,
+      draft: {
+        pool: draftState.pool,
+        firstPlayer: draftState.firstPlayer,
+        subStep: draftState.subStep,
+      },
+    });
+    broadcastRoomList();
+  });
+
+  /** 轮选动作同步 */
+  socket.on('draft_action', (data) => {
+    const state = getDraftState(data.roomCode);
+    if (!state) return;
+
+    const { artifactId, subStep, actionType } = data;
+
+    // 更新服务端轮选状态
+    const artifact = state.pool.find((a) => a.id === artifactId);
+    if (!artifact) return;
+
+    switch (actionType) {
+      case 'ban':
+        state.bannedArtifact = artifact;
+        break;
+      case 'pick':
+        // 判断是 firstPlayer 还是 secondPlayer
+        if (socket.id === state.firstPlayer) {
+          state.firstPicks.push(artifact);
+        } else {
+          state.secondPicks.push(artifact);
+        }
+        break;
+    }
+    state.subStep = subStep;
+    updateDraftState(data.roomCode, state);
+
+    // 广播对手的操作
+    socket.to(data.roomCode).emit('draft_action', {
+      artifactId,
+      subStep,
+      actionType,
+    });
+    console.log(`[轮选] ${data.roomCode} step=${subStep} ${actionType} ${artifactId}`);
   });
 
   /** 游戏动作广播 */

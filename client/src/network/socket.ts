@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
  * 前端 Socket 客户端 - 对接服务端（roomCode 体系）
- * 支持创建/加入房间、密码、大厅同步、游戏开始
+ * 支持创建/加入房间、准备、轮选同步、密码、大厅同步、游戏开始
  * ═══════════════════════════════════════════════════════════ */
 
 import { io, Socket } from 'socket.io-client';
@@ -10,6 +10,8 @@ import type {
   GameState,
   GameAction,
   RoomState,
+  DraftInitData,
+  DraftActionData,
 } from '../../shared/types';
 
 /** 服务端地址 — 通过 Vite 代理，同源访问 */
@@ -87,9 +89,19 @@ export function leaveRoom(roomCode: string): void {
   getSocket().emit('leave_room', { roomCode });
 }
 
+/** 玩家准备 */
+export function sendReady(roomCode: string): void {
+  getSocket().emit('player_ready', { roomCode });
+}
+
 /** 房主开始游戏 */
 export function startGame(roomCode: string): void {
   getSocket().emit('start_game', { roomCode });
+}
+
+/** 发送轮选动作 */
+export function sendDraftAction(roomCode: string, data: DraftActionData): void {
+  getSocket().emit('draft_action', { roomCode, ...data });
 }
 
 /** 发送游戏动作 */
@@ -131,6 +143,13 @@ export function onPlayerLeft(callback: (data: { playerId: string }) => void): vo
   getSocket().on('player_left', callback);
 }
 
+/** 监听玩家准备状态更新 */
+export function onPlayerReady(
+  callback: (data: { playerId: string; ready: boolean }) => void
+): void {
+  getSocket().on('player_ready_update', callback);
+}
+
 /** 监听聊天消息 */
 export function onChatMessage(
   callback: (data: { playerId: string; message: string; timestamp: number }) => void
@@ -143,9 +162,14 @@ export function onRoomListUpdate(callback: (rooms: RoomState[]) => void): void {
   getSocket().on('room_list_update', callback);
 }
 
-/** 监听游戏开始 */
-export function onGameStarted(callback: (data: { roomId: string }) => void): void {
+/** 监听游戏开始（含轮选数据） */
+export function onGameStarted(callback: (data: { roomId: string; draft: DraftInitData }) => void): void {
   getSocket().on('game_started', callback);
+}
+
+/** 监听对手轮选动作 */
+export function onDraftAction(callback: (data: DraftActionData) => void): void {
+  getSocket().on('draft_action', callback);
 }
 
 /** 移除所有监听器 */

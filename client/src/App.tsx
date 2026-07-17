@@ -9,12 +9,14 @@ import { HomePage } from './components/HomePage';
 import { MultiplayerModal } from './components/MultiplayerModal';
 import { JoinGameModal } from './components/JoinGameModal';
 import { CreateGameModal } from './components/CreateGameModal';
-// import { SinglePlayerModal } from './components/SinglePlayerModal';
 import { GameRoom } from './components/GameRoom';
 import { DraftPage } from './components/DraftPage';
-// import { LobbyPage } from './components/LobbyPage';
 import { GameBoard } from './components/GameBoard';
-import { connect, onRoomListUpdate, removeAllListeners } from './network/socket';
+import {
+  connect, getSocket,
+  onRoomListUpdate, onGameStarted, onDraftAction, onPlayerReady,
+  removeAllListeners,
+} from './network/socket';
 
 const App: React.FC = () => {
   const {
@@ -23,6 +25,11 @@ const App: React.FC = () => {
     currentRoom,
     setRoomList,
     setScreen,
+    setSocketId,
+    setRoomId,
+    initDraft,
+    applyDraftAction,
+    setCurrentRoom,
   } = useGameStore();
 
   /* ── 创建/加入房间后自动跳转到房间界面 ── */
@@ -36,9 +43,44 @@ const App: React.FC = () => {
   useEffect(() => {
     connect();
 
-    // 监听房间列表更新（大厅使用）
+    const s = getSocket();
+    s.on('connect', () => {
+      setSocketId(s.id || '');
+    });
+    // 如果已经连接，立即设置
+    if (s.id) {
+      setSocketId(s.id);
+    }
+
+    // 监听房间列表更新
     onRoomListUpdate((rooms) => {
       setRoomList(rooms);
+    });
+
+    // 监听游戏开始（含轮选数据）
+    onGameStarted((data) => {
+      setRoomId(data.roomId);
+      initDraft(data.draft.pool, data.draft.firstPlayer);
+      setScreen('draft');
+    });
+
+    // 监听对手轮选动作
+    onDraftAction((data) => {
+      applyDraftAction(data.artifactId, data.subStep, data.actionType);
+    });
+
+    // 监听玩家准备状态
+    onPlayerReady((data) => {
+      const room = useGameStore.getState().currentRoom;
+      if (room) {
+        const updatedRoom = {
+          ...room,
+          players: room.players.map((p) =>
+            p.id === data.playerId ? { ...p, ready: data.ready } : p
+          ),
+        };
+        setCurrentRoom(updatedRoom);
+      }
     });
 
     return () => {
@@ -55,8 +97,6 @@ const App: React.FC = () => {
         return <JoinGameModal />;
       case 'create':
         return <CreateGameModal />;
-      // case 'single':
-      //   return <SinglePlayerModal />;
       default:
         return null;
     }

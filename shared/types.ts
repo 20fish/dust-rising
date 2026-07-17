@@ -174,15 +174,34 @@ export interface RoomState {
   createdAt: number;
 }
 
+/** 轮选动作数据（服务端↔客户端同步） */
+export interface DraftActionData {
+  /** 被操作的神器ID */
+  artifactId: string;
+  /** 操作后的子步骤 */
+  subStep: number;
+  /** 操作类型 */
+  actionType: 'ban' | 'pick';
+}
+
+/** 轮选初始数据（服务端下发） */
+export interface DraftInitData {
+  pool: ArtifactDef[];
+  firstPlayer: string; // socket.id of the first player
+  subStep: number;
+}
+
 /** Socket 事件类型 */
 export interface ServerToClientEvents {
   player_joined: (data: { playerId: string; playerName: string }) => void;
   player_left: (data: { playerId: string }) => void;
+  player_ready_update: (data: { playerId: string; ready: boolean }) => void;
   game_action: (action: GameAction) => void;
   game_state_update: (gameState: GameState) => void;
   chat_message: (data: { playerId: string; message: string; timestamp: number }) => void;
   room_list_update: (rooms: RoomState[]) => void;
-  game_started: (data: { roomId: string }) => void;
+  game_started: (data: { roomId: string; draft: DraftInitData }) => void;
+  draft_action: (data: DraftActionData) => void;
 }
 
 export interface ClientToServerEvents {
@@ -194,4 +213,6 @@ export interface ClientToServerEvents {
   game_state_update: (data: { roomCode: string; gameState: GameState }) => void;
   chat_message: (data: { roomCode: string; message: string }) => void;
   start_game: (data: { roomCode: string }) => void;
+  player_ready: (data: { roomCode: string }) => void;
+  draft_action: (data: { roomCode: string } & DraftActionData) => void;
 }

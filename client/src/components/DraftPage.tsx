@@ -17,9 +17,10 @@ import type { ArtifactColumn, ArtifactDef } from '../types/game';
 const COL_LABELS = ['第一列 · 速度/意志', '第二列 · 骰点分布', '第三列 · 生命/充能'];
 
 /** 获取当前步骤的描述文本 */
-function getStepLabel(subStep: number, firstPlayer: 'player' | 'opponent'): string {
-  const first = firstPlayer === 'player' ? '我方' : '对手';
-  const second = firstPlayer === 'player' ? '对手' : '我方';
+function getStepLabel(subStep: number, firstPlayerId: string, socketId: string): string {
+  const isFirst = firstPlayerId === socketId;
+  const first = isFirst ? '我方' : '对手';
+  const second = isFirst ? '对手' : '我方';
   switch (subStep) {
     case 0: return `步骤 1/6: ${first} ban 掉一件神器`;
     case 1: return `步骤 2/6: ${second} 从被ban列选择一件`;
@@ -31,28 +32,19 @@ function getStepLabel(subStep: number, firstPlayer: 'player' | 'opponent'): stri
   }
 }
 
-/** 获取当前回合的标签 */
-function getTurnLabel(subStep: number, firstPlayer: 'player' | 'opponent'): string {
-  const isFirst = firstPlayer === 'player';
-  const isPlayerTurn = (() => {
-    switch (subStep) {
-      case 0: return isFirst;
-      case 1: return !isFirst;
-      case 2: return isFirst;
-      case 3: return !isFirst;
-      case 4: return !isFirst;
-      case 5: return isFirst;
-      default: return false;
-    }
-  })();
-  return isPlayerTurn ? '轮到你了' : '等待对手选择...';
-}
-
 export const DraftPage: React.FC = () => {
-  const { draft, draftAction, getUsedIds } = useGameStore();
+  const {
+    draft,
+    previewArtifactId,
+    getUsedIds,
+    setPreviewArtifact,
+    confirmPreview,
+    cancelPreview,
+    socketId,
+  } = useGameStore();
 
   const usedIds = getUsedIds();
-  const isFirst = draft.firstPlayer === 'player';
+  const isFirst = draft.firstPlayerId === socketId;
 
   /* ── 判断当前是否轮到玩家 ── */
   const isPlayerTurn = (() => {
@@ -97,14 +89,12 @@ export const DraftPage: React.FC = () => {
       case 2: return !firstPicks.some((a) => a.column === artifact.column); // 先手: 不重复列
       case 3:
       case 4: {
-        // 后手: 仅缺失列
         const missing = ([0, 1, 2] as ArtifactColumn[]).filter(
           (c) => !secondPicks.some((a) => a.column === c)
         );
         return missing.includes(artifact.column);
       }
       case 5: {
-        // 先手: 仅缺失列
         const missing = ([0, 1, 2] as ArtifactColumn[]).filter(
           (c) => !firstPicks.some((a) => a.column === c)
         );
@@ -114,12 +104,17 @@ export const DraftPage: React.FC = () => {
     }
   };
 
-  /* ── 点击神器 ── */
+  /* ── 点击神器 → 预览 ── */
   const handleClick = (artifact: ArtifactDef) => {
     if (!isPlayerTurn) return;
     if (usedIds.has(artifact.id)) return;
-    draftAction(artifact.id);
+    setPreviewArtifact(artifact.id);
   };
+
+  /* ── 获取预览中的神器 ── */
+  const previewArtifact = previewArtifactId
+    ? draft.pool.find((a) => a.id === previewArtifactId)
+    : null;
 
   return (
     <div className="draft-page">
@@ -150,7 +145,7 @@ export const DraftPage: React.FC = () => {
 
       {/* 当前步骤说明 */}
       <div className="draft-step-desc">
-        {getStepLabel(draft.subStep, draft.firstPlayer)}
+        {getStepLabel(draft.subStep, draft.firstPlayerId, socketId)}
       </div>
 
       {/* ── 主内容 ── */}
@@ -176,7 +171,7 @@ export const DraftPage: React.FC = () => {
                     <div
                       key={artifact.id}
                       className={`draft-cell ${isUsed ? 'used' : ''} ${clickable ? 'can-pick' : ''} ${owner === 'player' ? 'owner-player' : ''} ${owner === 'opponent' ? 'owner-opponent' : ''} ${owner === 'banned' ? 'owner-banned' : ''}`}
-                      onClick={() => canPick(artifact) && handleClick(artifact)}
+                      onClick={() => clickable && handleClick(artifact)}
                     >
                       <img className="draft-cell-img" src={getArtifactImage(artifact)} alt={artifact.name} />
                       <span className="draft-cell-name">{artifact.name}</span>
@@ -202,10 +197,10 @@ export const DraftPage: React.FC = () => {
 
                       {/* 可点击提示 */}
                       {clickable && draft.subStep === 0 && (
-                        <div className="draft-cell-hint ban-hint">点击禁用</div>
+                        <div className="draft-cell-hint ban-hint">点击预览</div>
                       )}
                       {clickable && draft.subStep !== 0 && (
-                        <div className="draft-cell-hint">点击选择</div>
+                        <div className="draft-cell-hint">点击预览</div>
                       )}
                     </div>
                   );
@@ -283,6 +278,52 @@ export const DraftPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ── 预览弹窗 ── */}
+      {previewArtifact && (
+        <div className="draft-preview-overlay" onClick={cancelPreview}>
+          <div className="draft-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="draft-preview-image">
+              <img src={getArtifactImage(previewArtifact)} alt={previewArtifact.name} />
+            </div>
+            <div className="draft-preview-info">
+              <h2 className="draft-preview-name">{previewArtifact.name}</h2>
+              <div className="draft-preview-stats">
+                {previewArtifact.column === 0 && (
+                  <span className="draft-preview-stat">速度: {previewArtifact.speed} | 意志: {previewArtifact.will}</span>
+                )}
+                {previewArtifact.column === 1 && (
+                  <span className="draft-preview-stat">骰点分布列</span>
+                )}
+                {previewArtifact.column === 2 && (
+                  <span className="draft-preview-stat">生命: {previewArtifact.life} | 充能: {previewArtifact.chargeRequirement}</span>
+                )}
+              </div>
+              {/* 技能列表 */}
+              {previewArtifact.skills.length > 0 && (
+                <div className="draft-preview-skills">
+                  <h4 className="draft-preview-skills-title">技能</h4>
+                  {previewArtifact.skills.map((skill) => (
+                    <div key={skill.skillId} className="draft-preview-skill">
+                      <span className="draft-preview-skill-type">[{skill.type}]</span>
+                      <span className="draft-preview-skill-name">{skill.name}</span>
+                      <span className="draft-preview-skill-desc">{skill.description}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="draft-preview-actions">
+              <button className="draft-preview-cancel" onClick={cancelPreview}>
+                取消
+              </button>
+              <button className="draft-preview-confirm" onClick={confirmPreview}>
+                {draft.subStep === 0 ? '确认禁用' : '确认选择'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
