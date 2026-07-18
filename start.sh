@@ -23,64 +23,87 @@ mkdir -p "$PID_DIR" "$LOG_DIR"
 check_port() {
     local port=$1
     if lsof -i:$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-        echo -e "${YELLOW}⚠ 端口 $port 已被占用${NC}"
-        return 1
+        echo -e "${YELLOW}⚠ 端口 $port 已被占用，尝试释放...${NC}"
+        lsof -i:$port -sTCP:LISTEN -t | xargs kill -9 2>/dev/null || true
+        sleep 1
     fi
-    return 0
 }
 
 # ── 安装依赖 ──
 echo -e "${YELLOW}📦 检查依赖...${NC}"
 
-if [ ! -d "$SCRIPT_DIR/server/node_modules" ]; then
+cd "$SCRIPT_DIR/server"
+if [ ! -d "node_modules" ]; then
     echo "  安装服务端依赖..."
-    cd "$SCRIPT_DIR/server" && npm install
+    npm install
 fi
 
-if [ ! -d "$SCRIPT_DIR/client/node_modules" ]; then
+cd "$SCRIPT_DIR/client"
+if [ ! -d "node_modules" ]; then
     echo "  安装客户端依赖..."
-    cd "$SCRIPT_DIR/client" && npm install
+    npm install
 fi
 
 echo -e "${GREEN}✓ 依赖就绪${NC}"
 
 # ── 启动服务端 ──
 SERVER_PORT=3001
-if check_port $SERVER_PORT; then
-    echo -e "${YELLOW}🚀 启动服务端 (端口 $SERVER_PORT)...${NC}"
-    cd "$SCRIPT_DIR/server"
-    nohup npx tsx src/index.ts > "$LOG_DIR/server.log" 2>&1 &
-    SERVER_PID=$!
-    echo $SERVER_PID > "$PID_DIR/server.pid"
-    echo -e "${GREEN}✓ 服务端 PID: $SERVER_PID${NC}"
-else
-    echo -e "${YELLOW}  服务端已在运行，跳过${NC}"
+check_port $SERVER_PORT
+
+echo -e "${YELLOW}🚀 启动服务端 (端口 $SERVER_PORT)...${NC}"
+cd "$SCRIPT_DIR/server"
+# 确保 tsx 可用（从 node_modules 解析）
+if [ ! -f "node_modules/.bin/tsx" ]; then
+    echo "  安装 tsx..."
+    npm install
 fi
+nohup node_modules/.bin/tsx src/index.ts > "$LOG_DIR/server.log" 2>&1 &
+SERVER_PID=$!
+echo $SERVER_PID > "$PID_DIR/server.pid"
+echo -e "${GREEN}✓ 服务端 PID: $SERVER_PID${NC}"
 
 # ── 启动客户端 ──
 CLIENT_PORT=5173
-if check_port $CLIENT_PORT; then
-    echo -e "${YELLOW}🎨 启动前端 (端口 $CLIENT_PORT)...${NC}"
-    cd "$SCRIPT_DIR/client"
-    nohup npx vite --host 0.0.0.0 > "$LOG_DIR/client.log" 2>&1 &
-    CLIENT_PID=$!
-    echo $CLIENT_PID > "$PID_DIR/client.pid"
-    echo -e "${GREEN}✓ 前端 PID: $CLIENT_PID${NC}"
-else
-    echo -e "${YELLOW}  前端已在运行，跳过${NC}"
-fi
+check_port $CLIENT_PORT
 
-# ── 等待启动 ──
+echo -e "${YELLOW}🎨 启动前端 (端口 $CLIENT_PORT)...${NC}"
+cd "$SCRIPT_DIR/client"
+nohup npx vite --host 0.0.0.0 > "$LOG_DIR/client.log" 2>&1 &
+CLIENT_PID=$!
+echo $CLIENT_PID > "$PID_DIR/client.pid"
+echo -e "${GREEN}✓ 前端 PID: $CLIENT_PID${NC}"
+
+# ── 等待服务端就绪 ──
 echo ""
 echo -e "${YELLOW}⏳ 等待服务就绪...${NC}"
-sleep 2
 
-# 检查服务端
-if curl -s http://localhost:$SERVER_PORT/api/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ 服务端就绪: http://localhost:$SERVER_PORT${NC}"
-else
-    echo -e "${RED}✗ 服务端未就绪，查看日志: $LOG_DIR/server.log${NC}"
+# 先检查进程是否还活着（快速失败）
+sleep 1
+if ! kill -0 $SERVER_PID 2>/dev/null; then
+    echo -e "${RED}✗ 服务端进程已退出，以下是最新日志:${NC}"
+    echo "──────────────────────────────────────"
+    cat "$LOG_DIR/server.log" 2>/dev/null || echo "(日志为空)"
+    echo "──────────────────────────────────────"
+    echo -e "${YELLOW}提示: 请检查上方日志中的错误信息${NC}"
+    exit 1
 fi
+
+# 等待最多 10 秒
+for i in {1..10}; do
+    if curl -s http://localhost:$SERVER_PORT/api/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ 服务端就绪: http://localhost:$SERVER_PORT${NC}"
+        break
+    fi
+    if [ $i -eq 10 ]; then
+        echo -e "${RED}✗ 服务端启动失败，以下是最新日志:${NC}"
+        echo "──────────────────────────────────────"
+        tail -20 "$LOG_DIR/server.log" 2>/dev/null || echo "(日志为空)"
+        echo "──────────────────────────────────────"
+        echo -e "${YELLOW}提示: 请检查 server/package.json 依赖是否完整安装${NC}"
+        exit 1
+    fi
+    sleep 1
+done
 
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════${NC}"
