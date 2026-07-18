@@ -29,6 +29,17 @@ check_port() {
     fi
 }
 
+# ── 修复权限（防止之前用 root 安装导致当前用户无法写入） ──
+fix_perms() {
+    local dir=$1
+    if [ -d "$dir/node_modules" ]; then
+        # 确保当前用户对 node_modules 有写权限
+        chmod -R u+w "$dir/node_modules" 2>/dev/null || true
+        # 清理可能残留的 vite-temp 缓存
+        rm -rf "$dir/node_modules/.vite-temp" 2>/dev/null || true
+    fi
+}
+
 # ── 安装依赖 ──
 echo -e "${YELLOW}📦 检查依赖...${NC}"
 
@@ -37,12 +48,14 @@ if [ ! -d "node_modules" ]; then
     echo "  安装服务端依赖..."
     npm install
 fi
+fix_perms "$SCRIPT_DIR/server"
 
 cd "$SCRIPT_DIR/client"
 if [ ! -d "node_modules" ]; then
     echo "  安装客户端依赖..."
     npm install
 fi
+fix_perms "$SCRIPT_DIR/client"
 
 echo -e "${GREEN}✓ 依赖就绪${NC}"
 
