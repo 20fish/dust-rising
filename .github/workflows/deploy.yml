@@ -1,0 +1,50 @@
+name: 自动部署到云服务器
+
+on:
+  push:
+    branches: [ "main" ]   # 如果你用的是 master 分支，请改成 "master"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 通过 SSH 连接云服务器并执行部署
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # 进入项目目录
+            cd /home/dust/dust-rising
+            
+            # 拉取最新代码
+            git pull
+            
+            # ----- 构建前端 (client) -----
+            cd client
+            npm install
+            npm run build
+            cd ..
+            
+            # ----- 安装后端依赖 (server) -----
+            cd server
+            npm install
+            cd ..
+            
+            # ----- 使用 PM2 重启服务（防止进程重复） -----
+            # 1. 停止并删除旧进程（如果存在）
+            pm2 delete dust-rising-server 2>/dev/null || true
+            pm2 delete dust-rising-frontend 2>/dev/null || true
+            
+            # 2. 启动后端（假设入口文件是 server/index.js，请按实际调整）
+            cd server
+            pm2 start index.js --name dust-rising-server
+            cd ..
+            
+            # 3. 启动前端静态托管（托管 client/dist 文件夹，端口 5173）
+            pm2 serve client/dist 5173 --spa --name dust-rising-frontend
+            
+            # 4. 保存 pm2 进程列表
+            pm2 save
