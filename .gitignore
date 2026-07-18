@@ -27,6 +27,10 @@ lerna-debug.log*
 !.vscode/extensions.json
 .idea
 
+# Runtime
+.pids/
+logs/
+
 # Test artifacts
 test_*.png
 e2e_*.png

@@ -1,0 +1,14 @@
+{
+  "name": "dust-rising",
+  "version": "1.0.0",
+  "private": true,
+  "description": "尘起时刻 - 战术骰子对战桌游",
+  "scripts": {
+    "start": "bash start.sh",
+    "stop": "bash stop.sh",
+    "restart": "bash stop.sh && bash start.sh",
+    "dev": "bash start.sh",
+    "status": "bash -c 'echo \"服务端: $(curl -s http://localhost:3001/api/health 2>/dev/null || echo 未运行)\"; echo \"前端: $(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173 2>/dev/null || echo 未运行)\"'",
+    "logs": "bash -c 'tail -f logs/server.log logs/client.log 2>/dev/null'"
+  }
+}
