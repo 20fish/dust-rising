@@ -15,6 +15,7 @@ import { GameBoard } from './components/GameBoard';
 import {
   connect, getSocket,
   onRoomListUpdate, onGameStarted, onDraftAction, onPlayerReady,
+  onPlayerJoined, onPlayerLeft,
   removeAllListeners,
 } from './network/socket';
 
@@ -80,6 +81,29 @@ const App: React.FC = () => {
           ),
         };
         setCurrentRoom(updatedRoom);
+      }
+    });
+
+    // 监听对手加入
+    onPlayerJoined((data) => {
+      const room = useGameStore.getState().currentRoom;
+      if (room) {
+        if (room.players.some((p) => p.id === data.playerId)) return;
+        setCurrentRoom({
+          ...room,
+          players: [...room.players, { id: data.playerId, name: data.playerName, ready: false }],
+        });
+      }
+    });
+
+    // 监听对手离开
+    onPlayerLeft((data) => {
+      const room = useGameStore.getState().currentRoom;
+      if (room) {
+        setCurrentRoom({
+          ...room,
+          players: room.players.filter((p) => p.id !== data.playerId),
+        });
       }
     });
 

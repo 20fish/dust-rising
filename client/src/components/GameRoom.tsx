@@ -3,56 +3,24 @@
  * 显示房间号（可复制）、玩家列表、准备按钮、开始游戏按钮（房主）
  * ═══════════════════════════════════════════════════════════ */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { startGame, leaveRoom, sendReady, onPlayerJoined, onPlayerLeft, removeAllListeners } from '../network/socket';
+import { startGame, leaveRoom, sendReady } from '../network/socket';
 
 export const GameRoom: React.FC = () => {
   const { currentRoom, setCurrentRoom, setScreen, playerName, socketId } = useGameStore();
   const [copied, setCopied] = useState(false);
-  const [players, setPlayers] = useState(currentRoom?.players || []);
 
   const isHost = currentRoom?.hostId === socketId;
-
-  /* ── 监听对手加入/离开 ── */
-  useEffect(() => {
-    if (!currentRoom) return;
-
-    setPlayers(currentRoom.players);
-
-    onPlayerJoined((data) => {
-      setPlayers((prev) => {
-        if (prev.some((p) => p.id === data.playerId)) return prev;
-        return [...prev, { id: data.playerId, name: data.playerName, ready: false }];
-      });
-      // 同步更新 store 的 currentRoom
-      const room = useGameStore.getState().currentRoom;
-      if (room) {
-        setCurrentRoom({
-          ...room,
-          players: [...room.players, { id: data.playerId, name: data.playerName, ready: false }],
-        });
-      }
-    });
-
-    onPlayerLeft((data) => {
-      setPlayers((prev) => prev.filter((p) => p.id !== data.playerId));
-    });
-
-    return () => {
-      // 不移除所有监听器，因为 App.tsx 也注册了全局监听器
-    };
-  }, [currentRoom]);
+  const players = currentRoom?.players || [];
 
   /* ── 复制房间号 ── */
   const handleCopy = async () => {
     if (!currentRoom) return;
     try {
-      // 尝试使用 Clipboard API
       await navigator.clipboard.writeText(currentRoom.roomCode);
       setCopied(true);
     } catch {
-      // Fallback: 使用 execCommand (非HTTPS兼容)
       try {
         const textarea = document.createElement('textarea');
         textarea.value = currentRoom.roomCode;
@@ -75,13 +43,6 @@ export const GameRoom: React.FC = () => {
   const handleReady = () => {
     if (!currentRoom) return;
     sendReady(currentRoom.roomCode);
-    // 本地立即更新
-    setPlayers((prev) =>
-      prev.map((p) =>
-        p.id === socketId ? { ...p, ready: true } : p
-      )
-    );
-    // 同步更新 store
     setCurrentRoom({
       ...currentRoom,
       players: currentRoom.players.map((p) =>

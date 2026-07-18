@@ -283,36 +283,85 @@ export const DraftPage: React.FC = () => {
       {previewArtifact && (
         <div className="draft-preview-overlay" onClick={cancelPreview}>
           <div className="draft-preview-modal" onClick={(e) => e.stopPropagation()}>
+            {/* 神器大图 */}
             <div className="draft-preview-image">
               <img src={getArtifactImage(previewArtifact)} alt={previewArtifact.name} />
             </div>
-            <div className="draft-preview-info">
+
+            {/* 神器名称 */}
+            <div className="draft-preview-name-bar">
               <h2 className="draft-preview-name">{previewArtifact.name}</h2>
-              <div className="draft-preview-stats">
-                {previewArtifact.column === 0 && (
-                  <span className="draft-preview-stat">速度: {previewArtifact.speed} | 意志: {previewArtifact.will}</span>
-                )}
-                {previewArtifact.column === 1 && (
-                  <span className="draft-preview-stat">骰点分布列</span>
-                )}
-                {previewArtifact.column === 2 && (
-                  <span className="draft-preview-stat">生命: {previewArtifact.life} | 充能: {previewArtifact.chargeRequirement}</span>
+              <span className="draft-preview-col-tag">{COL_LABELS[previewArtifact.column].split('·')[0].trim()}</span>
+            </div>
+
+            {/* 双栏：左边属性 / 右边技能 */}
+            <div className="draft-preview-body">
+              <div className="draft-preview-left">
+                <h3 className="draft-preview-section-title">属性</h3>
+                <div className="draft-preview-attrs">
+                  {previewArtifact.column === 0 && (
+                    <>
+                      <div className="draft-preview-attr-row">
+                        <span className="draft-preview-attr-label">速度</span>
+                        <span className="draft-preview-attr-value">{previewArtifact.speed}</span>
+                      </div>
+                      <div className="draft-preview-attr-row">
+                        <span className="draft-preview-attr-label">意志</span>
+                        <span className="draft-preview-attr-value">{previewArtifact.will}</span>
+                      </div>
+                    </>
+                  )}
+                  {previewArtifact.column === 2 && (
+                    <>
+                      <div className="draft-preview-attr-row">
+                        <span className="draft-preview-attr-label">生命</span>
+                        <span className="draft-preview-attr-value">{previewArtifact.life}</span>
+                      </div>
+                      <div className="draft-preview-attr-row">
+                        <span className="draft-preview-attr-label">充能需求</span>
+                        <span className="draft-preview-attr-value">{previewArtifact.chargeRequirement || '无'}</span>
+                      </div>
+                    </>
+                  )}
+                  {/* 骰点分布 */}
+                  <div className="draft-preview-dice">
+                    <span className="draft-preview-attr-label">骰点分布</span>
+                    <div className="draft-preview-dice-grid">
+                      {([1, 2, 3, 4, 5, 6] as const).map((face) => {
+                        const type = previewArtifact.diceDistribution[face];
+                        const label = type === 'attack' ? '攻' : type === 'defense' ? '防' : '冥';
+                        return (
+                          <span key={face} className={`draft-preview-dice-face dice-${type}`}>
+                            {face}:{label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="draft-preview-right">
+                <h3 className="draft-preview-section-title">技能</h3>
+                {previewArtifact.skills.length > 0 ? (
+                  <div className="draft-preview-skills">
+                    {previewArtifact.skills.map((skill) => (
+                      <div key={skill.skillId} className="draft-preview-skill">
+                        <div className="draft-preview-skill-header">
+                          <span className="draft-preview-skill-type">[{skill.type}]</span>
+                          <span className="draft-preview-skill-name">{skill.name}</span>
+                        </div>
+                        <span className="draft-preview-skill-desc">{skill.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="draft-preview-no-skill">无技能</span>
                 )}
               </div>
-              {/* 技能列表 */}
-              {previewArtifact.skills.length > 0 && (
-                <div className="draft-preview-skills">
-                  <h4 className="draft-preview-skills-title">技能</h4>
-                  {previewArtifact.skills.map((skill) => (
-                    <div key={skill.skillId} className="draft-preview-skill">
-                      <span className="draft-preview-skill-type">[{skill.type}]</span>
-                      <span className="draft-preview-skill-name">{skill.name}</span>
-                      <span className="draft-preview-skill-desc">{skill.description}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+
+            {/* 操作按钮 */}
             <div className="draft-preview-actions">
               <button className="draft-preview-cancel" onClick={cancelPreview}>
                 取消
