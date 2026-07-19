@@ -10,6 +10,7 @@ import { artifactRegistry } from '../game/artifactRegistry';
 import { performInitialRoll, performInitialReroll, skipAwakening, checkGameOver, switchPlayer } from '../game/engine';
 import { executeSkillsByType, getSkillFn, resolvePlayers } from '../game/skills';
 import { executeEffects } from '../game/effectExecutor';
+import { calcAttackBonus } from '../game/attributeCalculator';
 import type { SkillExecutionResult } from '../../../shared/effects';
 import { sendDraftAction } from '../network/socket';
 
@@ -596,7 +597,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     /* 基础伤害 */
     const attacker = isPlayer ? state.player : state.opponent;
-    let baseDamage = selectedAttackDice.reduce((sum, d) => sum + d.value, 0) + attacker.attackBonus;
+    let baseDamage = selectedAttackDice.reduce((sum, d) => sum + d.value, 0) + calcAttackBonus(attacker);
     let blocked = false;
 
     /* 执行攻击方触发技能 → 获取 bonusDamage / ignoreDefense */

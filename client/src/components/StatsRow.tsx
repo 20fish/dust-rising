@@ -4,6 +4,7 @@
 
 import React from 'react';
 import type { PlayerState } from '../types/game';
+import { calcSpeed, calcWill, calcMaxLife } from '../game/attributeCalculator';
 
 interface StatsRowProps {
   player: PlayerState;
@@ -11,13 +12,17 @@ interface StatsRowProps {
 }
 
 export const StatsRow: React.FC<StatsRowProps> = ({ player, isOpponent }) => {
+  const speed = calcSpeed(player);
+  const will = calcWill(player);
+  const maxLife = calcMaxLife(player);
+
   return (
     <div className={`stats ${isOpponent ? 'opponent' : ''}`}>
       <span className="name">{player.name}</span>
-      <div className="stat">速 <span className="v">{player.speed}</span></div>
-      <div className="stat">意 <span className="v">{player.will}</span></div>
+      <div className="stat">速 <span className="v">{speed}</span></div>
+      <div className="stat">意 <span className="v">{will}</span></div>
       <div className="sep" />
-      <div className="stat">生命值 <span className="v hp">{player.life}/{player.artifacts[2]?.life ?? 15}</span></div>
+      <div className="stat">生命值 <span className="v hp">{player.life}/{maxLife}</span></div>
       <div className="sep" />
       <div className="stat">充能 <span className="v chg">{player.chargeCount}/{player.artifacts[2]?.chargeRequirement ?? 3}</span></div>
       {player.hasDustSeal && (

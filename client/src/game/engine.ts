@@ -4,13 +4,14 @@
 
 import type { Dice, GameState, PlayerState, DiceZone, Artifact } from '../types/game';
 import { createDiceBatch, distributeDice } from './dice';
+import { calcWill } from './attributeCalculator';
 
 /**
  * 执行初始投掷
  * 投掷数量 = 玩家意志，骰点分布由第二列神器决定
  */
 export function performInitialRoll(player: PlayerState): { player: PlayerState } {
-  const will = player.will;
+  const will = calcWill(player);
   const dice = createDiceBatch(will);
 
   // 由第二列神器提供骰点分布
