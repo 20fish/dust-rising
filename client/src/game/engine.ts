@@ -97,3 +97,92 @@ export function switchPlayer(game: GameState): GameState {
     round: game.currentPlayerId === game.opponent.playerId ? game.round + 1 : game.round,
   };
 }
+
+/* ═══════════════════════════════════════════════════════════
+ *  补骰逻辑 — replenish 阶段使用
+ * ═══════════════════════════════════════════════════════════ */
+
+/**
+ * 补充骰子：当前骰子总数 < will 时，补充到 will
+ * 新骰子类型由第二列神器的 diceDistribution 决定
+ */
+export function replenishDice(player: PlayerState): PlayerState {
+  const currentTotal =
+    player.zone.defense.length +
+    player.zone.attack.length +
+    player.zone.meditation.length;
+
+  const missing = player.will - currentTotal;
+  if (missing <= 0) return player;
+
+  const secondArtifact = player.artifacts[1];
+  const distribution = secondArtifact?.diceDistribution;
+
+  const newDice = createDiceBatch(missing);
+
+  if (distribution) {
+    const allDice = [
+      ...player.zone.defense,
+      ...player.zone.attack,
+      ...player.zone.meditation,
+      ...newDice,
+    ];
+    const newZone = distributeDice(allDice, distribution);
+    return { ...player, zone: newZone };
+  }
+
+  return {
+    ...player,
+    zone: {
+      defense: [...player.zone.defense],
+      attack: [...player.zone.attack, ...newDice.map(d => ({ ...d, type: 'attack' as const }))],
+      meditation: [...player.zone.meditation],
+    },
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+ *  充能系统
+ * ═══════════════════════════════════════════════════════════ */
+
+/** tickCharge 返回值 */
+export interface TickChargeResult {
+  player: PlayerState;
+  /** 本次 tick 是否刚达到充能满 */
+  isCharged: boolean;
+}
+
+/**
+ * 充能递增：第三列神器 chargeCount +1
+ */
+export function tickCharge(player: PlayerState): TickChargeResult {
+  const artifact = player.artifacts[2];
+  if (!artifact) return { player, isCharged: false };
+
+  const newCount = artifact.chargeCount + 1;
+  const isCharged = newCount >= artifact.chargeRequirement;
+
+  const newArtifact = { ...artifact, chargeCount: newCount };
+  const newArtifacts = [...player.artifacts] as typeof player.artifacts;
+  newArtifacts[2] = newArtifact;
+
+  return { player: { ...player, artifacts: newArtifacts }, isCharged };
+}
+
+/** checkOnCharge 返回值 */
+export interface ChargedArtifact {
+  artifactIndex: number;
+  artifact: Artifact;
+}
+
+/**
+ * 检查第三列神器是否充能满
+ */
+export function checkOnCharge(player: PlayerState): ChargedArtifact | null {
+  const artifact = player.artifacts[2];
+  if (!artifact) return null;
+  if (artifact.chargeCount >= artifact.chargeRequirement) {
+    return { artifactIndex: 2, artifact };
+  }
+  return null;
+}
