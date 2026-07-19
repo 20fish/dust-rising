@@ -12,13 +12,15 @@ export interface Dice {
   value: DiceValue;
 }
 
-export type DiceDistribution = Record<DiceValue, DiceType>;
+export type DiceDistribution = Partial<Record<DiceValue, DiceType | DiceType[]>>;
 
 /** 神器列 */
 export type ArtifactColumn = 0 | 1 | 2;
 
-/** 技能类型 */
-export type SkillType = 'active' | 'continuous' | 'trigger' | 'onActivate' | 'onCharge';
+/** 技能基础类型 */
+export type SkillBaseType = 'active' | 'continuous' | 'trigger' | 'onActivate' | 'onCharge' | 'onKill';
+/** 技能类型（支持分号分隔的组合，如 "启动；持续"） */
+export type SkillType = SkillBaseType | string;
 
 export interface Skill {
   /** 技能唯一ID，对应 SKILL_REGISTRY 中的键 */
@@ -44,7 +46,7 @@ export const ARTIFACT_BUDGET = {
   /** 充能需求下限 */
   CHARGE_MIN: 2,
   /** 技能数量上限 */
-  SKILL_MAX: 1,
+  SKILL_MAX: 2,
   /** 每列可注册神器数上限 */
   PER_COLUMN_MAX: 6,
 } as const;

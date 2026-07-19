@@ -38,9 +38,21 @@ export function distributeDice(
   const zone: DiceZone = { defense: [], attack: [], meditation: [] };
 
   for (const die of dice) {
-    const type = distribution[die.value];
-    die.type = type;
-    zone[type].push(die);
+    const typeOrTypes = distribution[die.value];
+    if (!typeOrTypes) {
+      // 无映射时默认归入攻击区
+      die.type = 'attack';
+      zone.attack.push(die);
+      continue;
+    }
+    if (Array.isArray(typeOrTypes)) {
+      // 一点多类型：按骰子分配顺序轮流
+      const idx = die.id.charCodeAt(0) % typeOrTypes.length;
+      die.type = typeOrTypes[idx];
+    } else {
+      die.type = typeOrTypes;
+    }
+    zone[die.type].push(die);
   }
 
   return zone;
