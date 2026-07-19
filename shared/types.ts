@@ -96,6 +96,8 @@ export interface Artifact extends ArtifactDef {
   isActive: boolean;
   /** 当前充能计数 */
   chargeCount: number;
+  /** 通用计数器（技能使用的各种叠加层数等） */
+  counters: Record<string, number>;
 }
 
 /** 从 ArtifactDef 创建运行时实例 */
@@ -104,6 +106,7 @@ export function createArtifactInstance(def: ArtifactDef): Artifact {
     ...def,
     isActive: false,
     chargeCount: 0,
+    counters: {},
   };
 }
 
