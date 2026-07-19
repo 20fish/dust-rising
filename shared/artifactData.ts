@@ -37,7 +37,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '当你使用攻击骰造成伤害后。你可以保留其点数，将其移动至你的防御骰区或冥想骰区。本技能每回合最多触发3次。',
       },
     ],
-    imageKey: 'yuqie',
+    imageKey: '空-雨切',
   },
   {
     id: 'youlong',
@@ -70,7 +70,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '消耗3个冥想骰。获得4个随机点数的能力骰，将其中点数最大和最小的能力骰各1个移动到攻击骰区，将另外2个能力骰移动到防御骰区。本回合中，你的攻击伤害+1。',
       },
     ],
-    imageKey: 'yuqie-youlong',
+    imageKey: '空-游龙',
   },
   {
     id: 'mingjing',
@@ -92,7 +92,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '充能：你可以立即再次进行1次需要正常使用冥想骰的额外"尘起行动"。；必杀：弃置你的全部能力骰。弃置对方与你弃置的能力骰对应种类、对应数量的能力骰。造成X点真实伤害，X为以此法弃置的双方能力骰数量总和。之后，你获得3个随机点数的防御骰。',
       },
     ],
-    imageKey: 'yuqie-mingjing',
+    imageKey: '空-明镜',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -124,7 +124,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '持续：你的攻击伤害+X。X为本神器叠加的计数。；触发：当你的攻击被防御骰抵挡后。→你可以消耗1个攻击骰和1个冥想骰，取消该防御骰的效果，并再额外追加2点真实伤害。',
       },
     ],
-    imageKey: 'buxiang',
+    imageKey: '影-不详',
   },
   {
     id: 'yinglue',
@@ -158,7 +158,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '消耗2个攻击骰。获得2个随机点数的防御骰和1个随机点数的冥想骰。',
       },
     ],
-    imageKey: 'yinglue',
+    imageKey: '影-影掠',
   },
   {
     id: 'wansha',
@@ -180,7 +180,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '充能：获得1个点数等同本神器当前充能层数的攻击骰。；必杀：消耗1个攻击骰。→弃置对方X个防御骰。之后，如果对方还有剩余的防御骰，你再获得X个随机点数的攻击骰。X为你消耗的攻击骰的点数。',
       },
     ],
-    imageKey: 'yinglue-wansha',
+    imageKey: '影-完杀',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -213,7 +213,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '触发：每当你的攻击被抵挡后。你可以弃置对方区域中1个点数小于该攻击的能力骰。；持续：你在每个回合中进行的第二次攻击伤害+2。',
       },
     ],
-    imageKey: 'tuhu',
+    imageKey: '李封-屠虎',
   },
   {
     id: 'aige',
@@ -247,7 +247,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '当你使用1个任意能力骰后。你可以令自己或对方的1个能力骰的点数变更为2点，并保留在原本的区域。',
       },
     ],
-    imageKey: 'lifeng-aige',
+    imageKey: '李封-哀歌',
   },
   {
     id: 'hanguang',
@@ -269,7 +269,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '充能：直到你的下个尘起阶段开始，在任何玩家重掷能力骰后，使其受到等同重掷数量的真实伤害。；必杀：消耗1个攻击骰，1个防御骰，以及1个冥想骰。从供应堆中拿取1·2·3·4·5·6点的骰子各1个置于本神器上，并在回合结束时移除本神器上的全部骰子。当你将要使用1个攻击骰时，从以下两项中选择1项执行：①将本神器上的1个骰子根据其点数移动到你的对应区域。②将本神器上的1个骰子移除，弃置对方的1个与该骰子点数相同的能力骰。',
       },
     ],
-    imageKey: 'lifeng-hanguang',
+    imageKey: '李封-寒光',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -302,7 +302,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '直到本回合结束前，你的攻击不可用防御骰抵挡，而是改为只能使用攻击骰抵挡，且你的攻击点数始终视为[3]。当你在本回合中通过攻击造成2次伤害后，立即结束你的主要阶段。',
       },
     ],
-    imageKey: 'mate-tianfa',
+    imageKey: '玛特-天罚',
   },
   {
     id: 'zhenyan',
@@ -337,7 +337,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '将你的最多3个能力骰改为你指定的任意点数，并将其移动至对应点数的区域。之后，你回复3点生命。',
       },
     ],
-    imageKey: 'mate-zhenyan',
+    imageKey: '玛特-真言',
   },
   {
     id: 'jiushu',
@@ -359,7 +359,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '持续：双方在各自的回合中进行的第一次攻击伤害+3。；必杀：消耗4个冥想骰。获得3个随机点数的攻击骰与3个随机点数的防御骰。之后，你回复10点生命。在接下来的游戏中，本神器失去"持续式"效果。',
       },
     ],
-    imageKey: 'mate-jiushu',
+    imageKey: '玛特-救赎',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -392,7 +392,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '当你在补充阶段补充的能力骰数量少于或等于3个时。你可以造成3点真实伤害，然后回复2点生命。',
       },
     ],
-    imageKey: 'tataluosishenhong',
+    imageKey: '塔塔萝丝-深红',
   },
   {
     id: 'dunwu',
@@ -427,7 +427,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '启动：消耗最多3个攻击骰。→获得等同消耗数量2倍的随机点数的冥想骰。；触发：当你通过技能消耗能力骰后。→你可以额外造成等同消耗能力骰数量的真实伤害。本技能每回合最多触发1次。',
       },
     ],
-    imageKey: 'tataluosidunwu',
+    imageKey: '塔塔萝丝-顿悟',
   },
   {
     id: 'monv',
@@ -449,7 +449,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '持续：你的意志+1，你的速度+X。X为你当前的冥想骰数量，且最大为3。；必杀：将你的最多3个冥想骰移动至你的另一个区域，并保留其原本的点数。',
       },
     ],
-    imageKey: 'tataluosimonv',
+    imageKey: '塔塔萝丝-魔女',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -482,7 +482,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '消耗4个类型相同的能力骰。→弃置对方4个与你消耗的能力骰类型相同的能力骰。之后，造成等同你消耗的能力骰点数总和一半的真实伤害（向下取整）。',
       },
     ],
-    imageKey: 'badunershi-zhuzai',
+    imageKey: '巴顿二世-主宰',
   },
   {
     id: 'tiebi',
@@ -516,7 +516,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '消耗2个冥想骰。弃置你的2个防御骰。若你弃置的防御骰数量不足2个，每少弃置1个防御骰，你便受到2点真实伤害。然后，你获得4个随机点数的防御骰。本回合中，你的攻击伤害+1。',
       },
     ],
-    imageKey: 'badunershi-tiebi',
+    imageKey: '巴顿二世-铁壁',
   },
   {
     id: 'guwang',
@@ -538,7 +538,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '触发：当你受到来自对方的真实伤害时。→你可以消耗1个防御骰，取消该真实伤害。；充能：将对方的1个攻击骰点数变更为[1]并保留在原本的区域。；必杀：弃置你的全部能力骰，然后获得随机点数的防御骰直至你的能力骰总数达到你的意志上限。之后，立即结束你的主要阶段。',
       },
     ],
-    imageKey: 'badunershi-guwang',
+    imageKey: '巴顿二世-孤王',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -571,7 +571,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '弃置对方X个能力骰。若对方弃置的能力骰数量不足X个，每少弃置1个能力骰，便造成3点真实伤害。X为本神器叠加的计数。然后，本神器的计数下降1点。',
       },
     ],
-    imageKey: 'aiwa-ezhao',
+    imageKey: '艾娃-恶兆',
   },
   {
     id: 'mengyan',
@@ -604,7 +604,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '启动：消耗1个攻击骰。→获得2个随机点数的冥想骰。；持续：你的攻击伤害+X。X为你的冥想骰数量的一半（向下取整）。',
       },
     ],
-    imageKey: 'aiwa-mengyan',
+    imageKey: '艾娃-梦魇',
   },
   {
     id: 'diaoling',
@@ -626,7 +626,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '充能：对方下降生命，直至生命的个位数为0。你尽可能地回复生命，直至生命的个位数为0。；持续：双方在各自的回合结束时，必须从以下两项中选择1项执行：①弃置自己的能力骰，直至自己区域中的能力骰点数全都相同。②弃置自己的能力骰，直至自己区域中的能力骰点数全都不同。',
       },
     ],
-    imageKey: 'aiwa-diaoling',
+    imageKey: '艾娃-凋零',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -659,7 +659,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '你受到4点真实伤害。从以下两项中选择1项执行：①获得3个随机点数的能力骰，并根据其点数移动至对应的区域。②本回合中，你的攻击伤害+2。',
       },
     ],
-    imageKey: 'xiu-xuyu',
+    imageKey: '修-虚臾',
   },
   {
     id: 'youming',
@@ -694,7 +694,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '启动：消耗最多3个冥想骰。→获得同等数量的随机点数的攻击骰。；持续：每当你的攻击造成伤害后，如果攻击点数不为1，你回复该攻击点数一半的生命（向上取整）；如果攻击点数为1，你受到3点真实伤害。',
       },
     ],
-    imageKey: 'xiu-youming',
+    imageKey: '修-幽冥',
   },
   {
     id: 'zhihei',
@@ -716,7 +716,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '持续：每当你于任何玩家的回合中第一次受到伤害后，本神器计数+1（最高叠加至5层）。当本神器的计数达到5时，你的"必杀式"技能必须立即启动，无论现在是谁的回合。；必杀：获得X个随机点数的能力骰，然后你可以重掷最多X个能力骰，并根据新的点数移动到你的对应区域。X为本神器叠加的计数。在接下来的游戏中，本神器失去"持续式"效果。',
       },
     ],
-    imageKey: 'xiu-zhihei',
+    imageKey: '修-至黑',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -749,7 +749,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '当你将要使用1个攻击骰时。→你可以使本神器的计数下降1点，然后从以下两项中选择1项执行：①令本次攻击伤害+1且不可抵挡。②令本次攻击伤害+5。',
       },
     ],
-    imageKey: 'xiwa-siqi',
+    imageKey: '希瓦-死契',
   },
   {
     id: 'shexie',
@@ -783,7 +783,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '重掷你的1个任意能力骰，并根据新的点数，将其移动至你的对应区域。→根据移动后的区域，从以下两项中选择1项执行：①你与对方分别获得2个该类型的随机点数的能力骰。②你与对方分别弃置2个该类型的能力骰。',
       },
     ],
-    imageKey: 'xiwa-shexie',
+    imageKey: '希瓦-蛇蝎',
   },
   {
     id: 'kuangwu',
@@ -805,7 +805,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '充能：选择任意玩家的1个能力骰，将其移动至该玩家的另一个区域，并保留其原本的点数。；必杀：你从双方的合计6个区域中，每个区域各选择3个能力骰（如果不足3个，则尽可能选择），将这些能力骰按顺时针或逆时针方向分别移动至下个区域（这可能让一位玩家的能力骰移入另一位玩家的区域）。',
       },
     ],
-    imageKey: 'xiwa-kuangwu',
+    imageKey: '希瓦-狂舞',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -838,7 +838,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '激活：同上。；触发：当对方使用1个防御骰或攻击骰后。你可以移除本神器上的1个与其点数相同的骰子，取消其效果。',
       },
     ],
-    imageKey: 'miyun-jingang',
+    imageKey: '弥云-金刚',
   },
   {
     id: 'qianjie',
@@ -870,7 +870,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '消耗2个点数相同的冥想骰。造成5点真实伤害。之后，选择任意玩家的一个区域，将该区域中的能力骰全部重掷，并根据新的点数，将这些能力骰移动至该玩家对应点数的区域。',
       },
     ],
-    imageKey: 'miyun-qianjie',
+    imageKey: '弥云-千劫',
   },
   {
     id: 'wuxiang',
@@ -892,7 +892,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '充能：弃置任意玩家的1个能力骰，并使该玩家回复3点生命。；必杀：只有当双方的合计6个区域中1点、2点、3点、4点、5点、6点的能力骰至少各有1个时才能启动。从双方的合计6个区域中选择1点、2点、3点、4点、5点、6点的能力骰各1个，将选择的能力骰保留，弃置其余的全部能力骰。之后，造成以此法弃置的每种点数总和的真实伤害（每种点数最多参与加总1次）。',
       },
     ],
-    imageKey: 'miyun-wuxiang',
+    imageKey: '弥云-无相',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -925,7 +925,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '消耗X个种类各不相同的能力骰。你从以下两项中选择X项执行（可以重复选择同一项）：①弃置对方的1个防御骰。②你获得1个+1点的攻击骰。选择后，刷新本技能的启动次数，并将本神器的激活标记移动至另一侧。',
       },
     ],
-    imageKey: 'nisa-chenai',
+    imageKey: '尼萨-尘哀',
   },
   {
     id: 'shouhun',
@@ -957,7 +957,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '激活：将本神器的计数重设为2。；持续：你的速度+X，X为本神器叠加的计数。当你将要受到对方攻击的伤害，且本神器有至少1点计数时，对方可以取消该伤害，然后令本神器的计数下降1点。',
       },
     ],
-    imageKey: 'nisa-shouhun',
+    imageKey: '尼萨-兽魂',
   },
   {
     id: 'jueyi',
@@ -979,7 +979,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '激活：你受到8点真实伤害，本神器计数+1。；持续：你能对已激活的本神器继续充能，并改为使本神器计数+1（最高叠加至5层），然后回复等同于本神器计数的生命。此外，根据本神器叠加的计数，你获得以下持续效果：1+：你的攻击伤害+1；3+：你的速度+1；5：当你的攻击被抵挡时，仍然造成一半的伤害（向下取整）。',
       },
     ],
-    imageKey: 'nisa-jueyi',
+    imageKey: '尼萨-决意',
   },
 
   /* ═══════════════════════════════════════════════════════════
@@ -1012,7 +1012,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '触发：当你的攻击被抵挡后。你可以将你的最多2个冥想骰移动至你的攻击骰区，并保留其原本的点数。；持续：当对方的重掷阶段结束时，插入一个你的重掷阶段。',
       },
     ],
-    imageKey: 'zuolei-minglei',
+    imageKey: '佐雷-鸣雷',
   },
   {
     id: 'chengjie',
@@ -1046,7 +1046,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '将你的最多2个[2]点能力骰变更为[4]，并将其移动至你对应点数的区域。如果你有至少1个能力骰变更，你获得2个随机点数的冥想骰，然后受到2点真实伤害。',
       },
     ],
-    imageKey: 'zuolei-chengjie',
+    imageKey: '佐雷-惩戒',
   },
   {
     id: 'canxiang',
@@ -1068,6 +1068,6 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '持续：你的意志+1。你的攻击伤害+X，X为本神器叠加的计数。每当你的回合结束时，本神器的计数下降1点（最低降为0）。；必杀：你的当前生命每比初始生命低10点，本神器便计数+1（向下取整，且最高叠加至4层）。',
       },
     ],
-    imageKey: 'zuolei-canxiang',
+    imageKey: '佐雷-残响',
   },
 ];

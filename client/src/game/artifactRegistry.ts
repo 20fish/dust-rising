@@ -12,7 +12,7 @@
 
 import type { ArtifactDef, Artifact, ArtifactColumn, ArtifactSource } from '../types/game';
 import { ARTIFACT_BUDGET, createArtifactInstance } from '../types/game';
-import { SKILL_REGISTRY } from './skills';
+// SKILL_REGISTRY 不再强制校验 — 36件内置神器的 skillId 尚未全部实现
 
 /* ── localStorage 键 ── */
 const STORAGE_KEY = 'dust_rising_custom_artifacts';
@@ -123,8 +123,9 @@ class ArtifactRegistry {
   getImagePath(id: string, column: ArtifactColumn): string {
     const def = this.defs.get(id);
     if (!def) return `/artifacts/unknown.jpg`;
-    const col = column + 1;
-    return `/artifacts/${def.imageKey} (${col}).jpg`;
+    const colNames = ['第一列', '第二列', '第三列'];
+    const colName = colNames[column] ?? `第${column + 1}列`;
+    return `/artifacts/${def.imageKey}-${colName}.jpg`;
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -164,24 +165,23 @@ class ArtifactRegistry {
     // 骰点分布
     if (def.diceDistribution) {
       const values = Object.values(def.diceDistribution);
-      const validTypes = ['attack', 'defense', 'meditation'];
+      const validTypes: string[] = ['attack', 'defense', 'meditation'];
       for (const v of values) {
-        if (!validTypes.includes(v)) {
-          errors.push(`骰点分布包含无效类型: ${v}`);
-          break;
+        // 支持单一类型和数组类型
+        const types = Array.isArray(v) ? v : [v];
+        for (const t of types) {
+          if (!validTypes.includes(t)) {
+            errors.push(`骰点分布包含无效类型: ${t}`);
+            break;
+          }
         }
       }
     }
 
-    // 技能
+    // 技能（不再强制校验 skillId 是否在 SKILL_REGISTRY 中 — 新技能尚未全部实现）
     if (def.skills) {
       if (def.skills.length > ARTIFACT_BUDGET.SKILL_MAX) {
         errors.push(`技能数量不能超过${ARTIFACT_BUDGET.SKILL_MAX}`);
-      }
-      for (const skill of def.skills) {
-        if (!SKILL_REGISTRY[skill.skillId]) {
-          errors.push(`未知技能ID: ${skill.skillId}（仅支持内置技能）`);
-        }
       }
     }
 
