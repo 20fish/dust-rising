@@ -38,5 +38,6 @@ export function createArtifactInstance(def: ArtifactDef): Artifact {
     ...def,
     isActive: false,
     chargeCount: 0,
+    counters: {},
   };
 }
