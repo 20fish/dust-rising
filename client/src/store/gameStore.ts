@@ -7,7 +7,7 @@ import type { GameState, GamePhase, PlayerState, RoomState, Artifact, ArtifactCo
 import { createArtifactInstance } from '../types/game';
 import { ALL_ARTIFACTS, getArtifactById } from '../game/artifacts';
 import { artifactRegistry } from '../game/artifactRegistry';
-import { performInitialRoll, performInitialReroll, skipAwakening, checkGameOver, switchPlayer } from '../game/engine';
+import { performInitialRoll, performInitialReroll, skipAwakening, checkGameOver, switchPlayer, replenishDice, tickCharge } from '../game/engine';
 import { executeSkillsByType, getSkillFn, resolvePlayers } from '../game/skills';
 import { executeEffects } from '../game/effectExecutor';
 import { calcAttackBonus } from '../game/attributeCalculator';
@@ -143,7 +143,7 @@ function createPlayer(
     life: c3.life,
     attackBonus: 0,
     hasDustSeal,
-    chargeCount: c3.chargeRequirement,
+    chargeCount: 0,
   };
 }
 
@@ -639,7 +639,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     /* 通过 EffectExecutor 统一应用 */
-    const newState = executeEffects(state, effects, attackerId);
+    let newState = executeEffects(state, effects, attackerId);
+
+    /* 攻击后充能递增 */
+    const attackerState = newState.player.playerId === attackerId ? newState.player : newState.opponent;
+    const chargeResult = tickCharge(attackerState);
+
+    if (chargeResult.isCharged) {
+      /* 充能满 → 触发 onCharge 技能 */
+      const chargedPlayer = chargeResult.player;
+      const stateWithCharge = newState.player.playerId === attackerId
+        ? { ...newState, player: chargedPlayer }
+        : { ...newState, opponent: chargedPlayer };
+
+      const onChargeResult = executeSkillsByType(stateWithCharge, attackerId, 'onCharge');
+      if (onChargeResult.canExecute && onChargeResult.effects.length > 0) {
+        newState = executeEffects(stateWithCharge, onChargeResult.effects, attackerId);
+      } else {
+        newState = stateWithCharge;
+      }
+
+      /* 触发后重置充能计数 */
+      const resetTarget = newState.player.playerId === attackerId ? newState.player : newState.opponent;
+      const resetArtifact = { ...resetTarget.artifacts[2]!, chargeCount: 0 };
+      const resetArtifacts = [...resetTarget.artifacts] as typeof resetTarget.artifacts;
+      resetArtifacts[2] = resetArtifact;
+      const finalReset = { ...resetTarget, artifacts: resetArtifacts };
+      newState = newState.player.playerId === attackerId
+        ? { ...newState, player: finalReset }
+        : { ...newState, opponent: finalReset };
+    } else {
+      /* 未满充能 → 更新充能计数 */
+      newState = newState.player.playerId === attackerId
+        ? { ...newState, player: chargeResult.player }
+        : { ...newState, opponent: chargeResult.player };
+    }
+
     set({ player: newState.player, opponent: newState.opponent, selectedDiceIds: [] });
   },
 
@@ -649,6 +684,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const idx = phaseOrder.indexOf(state.phase);
     if (idx >= 0 && idx < phaseOrder.length - 1) {
       const next = phaseOrder[idx + 1];
+
+      /* replenish → reroll: 对双方补骰 */
+      if (state.phase === 'replenish') {
+        const newPlayer = replenishDice(state.player);
+        const newOpponent = replenishDice(state.opponent);
+        set({ player: newPlayer, opponent: newOpponent, phase: 'reroll' });
+        return;
+      }
+
       if (next === 'end') {
         const switched = switchPlayer(state);
 
