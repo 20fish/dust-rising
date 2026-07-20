@@ -158,8 +158,8 @@ function createPlayer(
 
 export const useGameStore = create<GameStore>((set, get) => ({
   // ── 初始游戏状态 ──
-  player: createPlayer('player', '玩家', 'yuqie', 'yinglue', 'aige', false),
-  opponent: createPlayer('opponent', '对手', 'jingang', 'youming', 'dunwu', true),
+  player: createPlayer('player', '玩家', 'yuqie', 'yinglue', 'mingjing', false),
+  opponent: createPlayer('opponent', '对手', 'jingang', 'youming', 'wansha', true),
   currentPlayerId: 'player',
   phase: 'initialRoll',
   round: 1,
@@ -554,8 +554,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ── 游戏操作 ──
   initGame: (preset) => {
-    const player = createPlayer('player', '玩家', 'yuqie', 'yinglue', 'aige', false);
-    const opponent = createPlayer('opponent', '对手', 'jingang', 'youming', 'dunwu', true);
+    const player = createPlayer('player', '玩家', 'yuqie', 'yinglue', 'mingjing', false);
+    const opponent = createPlayer('opponent', '对手', 'jingang', 'youming', 'wansha', true);
     // 自动初始投掷
     const { player: rolledPlayer } = performInitialRoll(player);
     const { player: rolledOpponent } = performInitialRoll(opponent);
@@ -605,11 +605,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   selectDice: (diceId) => {
-    set((s) => ({
-      selectedDiceIds: s.selectedDiceIds.includes(diceId)
-        ? s.selectedDiceIds
-        : [...s.selectedDiceIds, diceId],
-    }));
+    set((s) => {
+      // 已选中的不重复添加
+      if (s.selectedDiceIds.includes(diceId)) return s;
+
+      const isCurrentPlayer = s.currentPlayerId === s.player.playerId;
+      const currentPlayer = isCurrentPlayer ? s.player : s.opponent;
+      const otherPlayer = isCurrentPlayer ? s.opponent : s.player;
+
+      if (s.defensePending) {
+        // 防御模式：防御方（非当前玩家）只能选自己的防御骰
+        const isDefenderDefenseDice = otherPlayer.zone.defense.some(d => d.id === diceId);
+        if (!isDefenderDefenseDice) return s;
+      } else {
+        // 普通模式：只能选当前玩家的骰子
+        const isOwnDice = [
+          ...currentPlayer.zone.defense,
+          ...currentPlayer.zone.attack,
+          ...currentPlayer.zone.meditation,
+        ].some(d => d.id === diceId);
+        if (!isOwnDice) return s;
+      }
+
+      return { selectedDiceIds: [...s.selectedDiceIds, diceId] };
+    });
   },
 
   deselectDice: (diceId) => {

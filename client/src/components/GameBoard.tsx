@@ -164,13 +164,13 @@ export const GameBoard: React.FC = () => {
         </div>
       )}
 
-      {/* 对手区域 (上方) */}
+      {/* 对手区域 (上方) — 仅在防御待定模式时允许选中对手的防御骰 */}
       <PlayerArea
         player={opponent}
         isOpponent={true}
         selectedDiceIds={defensePending ? selectedDiceIds : (isCurrentPlayerSelf ? selectedDiceIds : [])}
-        onSelectDice={selectDice}
-        onDeselectDice={deselectDice}
+        onSelectDice={defensePending ? selectDice : (() => {})}
+        onDeselectDice={defensePending ? deselectDice : (() => {})}
         onArtifactClick={setPreviewArtifact}
       />
 
