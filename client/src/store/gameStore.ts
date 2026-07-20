@@ -627,9 +627,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const currentPlayer = isPlayer ? state.player : state.opponent;
     const result = performReroll(currentPlayer, diceIds);
     if (isPlayer) {
-      set({ player: result.player });
+      set({
+        player: result.player,
+        lastEvent: { type: 'rerollEnd', playerId: currentPlayer.playerId, rerollCount: diceIds.length },
+      });
     } else {
-      set({ opponent: result.player });
+      set({
+        opponent: result.player,
+        lastEvent: { type: 'rerollEnd', playerId: currentPlayer.playerId, rerollCount: diceIds.length },
+      });
     }
   },
 
@@ -712,7 +718,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : { ...newState, opponent: chargeResult.player };
     }
 
-    set({ player: newState.player, opponent: newState.opponent, selectedDiceIds: [] });
+    set({
+      player: newState.player,
+      opponent: newState.opponent,
+      selectedDiceIds: [],
+      lastEvent: {
+        type: 'attackResolved',
+        playerId: attackerId,
+        targetId: defenderId,
+        attackDiceValue: attackDie.value,
+        attackDamage: finalDamage,
+        attackBlocked: isBlocked,
+        attackDiceId,
+      },
+    });
   },
 
   /* ── 发起攻击：检查对手是否有防御骰，有则进入防御待定模式 ── */
@@ -720,6 +739,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     const isPlayer = state.currentPlayerId === state.player.playerId;
     const opponent = isPlayer ? state.opponent : state.player;
+    const attackerId = isPlayer ? state.player.playerId : state.opponent.playerId;
+
+    // 设置攻击开始事件
+    set({ lastEvent: { type: 'attackStart', playerId: attackerId, attackDiceId } });
 
     // 如果对手有防御骰，进入防御选择模式
     if (opponent.zone.defense.length > 0) {
@@ -741,17 +764,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   advancePhase: () => {
     const state = get();
+    const prevPhase = state.phase;
+    const currentPlayerId = state.currentPlayerId;
 
     switch (state.phase) {
       /* ── 初始投掷 → 尘起（第一回合） ── */
       case 'initialRoll': {
-        set({ phase: 'awakening' });
+        set({
+          phase: 'awakening',
+          lastEvent: { type: 'phaseEnd', playerId: currentPlayerId, phase: 'initialRoll' },
+        });
         return;
       }
 
       /* ── 尘起 → 主阶段 ── */
       case 'awakening': {
-        set({ phase: 'main' });
+        set({
+          phase: 'main',
+          lastEvent: { type: 'phaseEnd', playerId: currentPlayerId, phase: 'awakening' },
+        });
         return;
       }
 
@@ -760,22 +791,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const currentPlayer = state.currentPlayerId === state.player.playerId ? state.player : state.opponent;
         const replenished = replenishDice(currentPlayer);
         if (state.currentPlayerId === state.player.playerId) {
-          set({ player: replenished, phase: 'reroll' });
+          set({
+            player: replenished,
+            phase: 'reroll',
+            lastEvent: { type: 'replenishEnd', playerId: currentPlayerId },
+          });
         } else {
-          set({ opponent: replenished, phase: 'reroll' });
+          set({
+            opponent: replenished,
+            phase: 'reroll',
+            lastEvent: { type: 'replenishEnd', playerId: currentPlayerId },
+          });
         }
         return;
       }
 
       /* ── 重掷 → 主阶段 ── */
       case 'reroll': {
-        set({ phase: 'main' });
+        set({
+          phase: 'main',
+          lastEvent: { type: 'rerollEnd', playerId: currentPlayerId },
+        });
         return;
       }
 
       /* ── 主阶段 → 结束阶段 ── */
       case 'main': {
-        set({ phase: 'end' });
+        set({
+          phase: 'end',
+          lastEvent: { type: 'phaseEnd', playerId: currentPlayerId, phase: 'main' },
+        });
         return;
       }
 
@@ -791,6 +836,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         // 切换玩家
         nextState = switchPlayer(nextState);
+        const newRound = nextState.round;
 
         // 检查游戏结束
         nextState = checkGameOver(nextState);
@@ -807,7 +853,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         // 判断下一回合的阶段：第一回合(r===1)进尘起，后续进补骰
         const nextPhase: GamePhase = nextState.round === 1 ? 'awakening' : 'replenish';
-        set({ ...nextState, phase: nextPhase });
+        set({
+          ...nextState,
+          phase: nextPhase,
+          lastEvent: {
+            type: 'roundEnd',
+            playerId: currentPlayerId,
+            round: newRound - 1,
+          },
+        });
         return;
       }
     }

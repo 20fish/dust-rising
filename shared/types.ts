@@ -128,6 +128,43 @@ export type GamePhase =
   | 'main'
   | 'end';
 
+/* ═══════════════════════════════════════════════════════════
+ *  游戏事件系统 — 用于触发式技能
+ * ═══════════════════════════════════════════════════════════ */
+
+export type GameEventType =
+  | 'attackStart'
+  | 'attackResolved'
+  | 'damageDealt'
+  | 'phaseStart'
+  | 'phaseEnd'
+  | 'roundStart'
+  | 'roundEnd'
+  | 'rerollEnd'
+  | 'replenishEnd';
+
+export interface GameEvent {
+  type: GameEventType;
+  /** 发起事件的玩家ID */
+  playerId: string;
+  /** 事件影响的玩家ID */
+  targetId?: string;
+  /** 攻击相关 */
+  attackDiceValue?: number;
+  attackDamage?: number;
+  attackBlocked?: boolean;
+  attackDiceId?: string;
+  /** 阶段相关 */
+  phase?: GamePhase;
+  /** 回合相关 */
+  round?: number;
+  /** 重掷相关 */
+  rerollCount?: number;
+  /** 伤害相关 */
+  damageAmount?: number;
+  isTrueDamage?: boolean;
+}
+
 /** 游戏模式 */
 export type GameMode = 'preset' | 'draft' | 'random';
 
@@ -156,6 +193,8 @@ export interface GameState {
   selectedDiceIds: string[];
   isGameOver: boolean;
   winnerId: string | null;
+  /** 最近一次事件（用于触发式技能判断） */
+  lastEvent?: GameEvent;
 }
 
 /** 游戏动作 */
