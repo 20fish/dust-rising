@@ -476,30 +476,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
             },
           });
         } else if (subStep === 6) {
-          // 最后一步，对手选完
-          const picks = isOpponentFirst ? draft.playerPicks : draft.opponentPicks;
-          const newPicks = [...picks, artifact];
-          const finalP = isOpponentFirst ? newPicks : draft.playerPicks;
-          const finalO = isOpponentFirst ? draft.opponentPicks : newPicks;
+          // 最后一步：先手已选完，通知后手最终结果
+          // artifactId 是先手选的最后一件，应加到先手的 picks 中
+          const firstPicks = isOpponentFirst ? draft.opponentPicks : draft.playerPicks;
+          const secondPicks = isOpponentFirst ? draft.playerPicks : draft.opponentPicks;
+          const newFirstPicks = [...firstPicks, artifact];
 
           const allUsed = new Set<string>([
             ...(draft.bannedArtifact ? [draft.bannedArtifact.id] : []),
-            ...finalP.map((a) => a.id),
-            ...finalO.map((a) => a.id),
+            ...newFirstPicks.map((a) => a.id),
+            ...secondPicks.map((a) => a.id),
           ]);
           const finalBanned = draft.pool.filter((a) => !allUsed.has(a.id));
 
           const sortByCol = (arr: ArtifactDef[]) => [...arr].sort((a, b) => a.column - b.column);
-          const p = sortByCol(finalP);
-          const o = sortByCol(finalO);
+          const p = sortByCol(secondPicks);
+          const o = sortByCol(newFirstPicks);
 
           const playerHasSeal = draft.firstPlayerId !== socketId;
 
           set({
             draft: {
               ...draft,
-              playerPicks: finalP,
-              opponentPicks: finalO,
+              playerPicks: secondPicks,
+              opponentPicks: newFirstPicks,
               finalBanned,
               subStep: 6,
             },
