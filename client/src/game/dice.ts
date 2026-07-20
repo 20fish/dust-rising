@@ -77,3 +77,36 @@ export function removeDiceFromZone(zone: DiceZone, diceIds: string[]): DiceZone 
     meditation: zone.meditation.filter(d => !diceIds.includes(d.id)),
   };
 }
+
+/* ═══════════════════════════════════════════════════════════
+ *  供应堆 — 骰子池操作
+ * ═══════════════════════════════════════════════════════════ */
+
+/** 初始化供应堆：每种点数1个（共6个） */
+export function createDicePool(): Dice[] {
+  return ([1, 2, 3, 4, 5, 6] as DiceValue[]).map(v => createDice(v));
+}
+
+/** 从供应堆取指定点数的骰子，返回 { 取出的骰子, 新的供应堆 } */
+export function takeFromPool(pool: Dice[], value: DiceValue): { die: Dice | null; pool: Dice[] } {
+  const idx = pool.findIndex(d => d.value === value);
+  if (idx === -1) return { die: null, pool };
+  const die = pool[idx];
+  return { die, pool: [...pool.slice(0, idx), ...pool.slice(idx + 1)] };
+}
+
+/** 从供应堆取任意数量的骰子（按点数升序），返回 { 取出的骰子, 新的供应堆 } */
+export function takeFromPoolByCount(pool: Dice[], count: number): { dice: Dice[]; pool: Dice[] } {
+  const taken: Dice[] = [];
+  let remaining = [...pool];
+  for (let i = 0; i < count && remaining.length > 0; i++) {
+    taken.push(remaining[0]);
+    remaining = remaining.slice(1);
+  }
+  return { dice: taken, pool: remaining };
+}
+
+/** 归还骰子到供应堆 */
+export function returnToPool(pool: Dice[], dice: Dice[]): Dice[] {
+  return [...pool, ...dice];
+}

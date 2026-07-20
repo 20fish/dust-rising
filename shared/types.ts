@@ -195,6 +195,8 @@ export interface GameState {
   winnerId: string | null;
   /** 最近一次事件（用于触发式技能判断） */
   lastEvent?: GameEvent;
+  /** 供应堆骰子池（1-6点各一个） */
+  dicePool: Dice[];
 }
 
 /** 游戏动作 */

@@ -39,6 +39,7 @@ function createTestGame(): GameState {
     currentPlayerId: 'p1', phase: 'main', round: 1,
     dustFallCounter: 0, selectedDiceIds: [],
     isGameOver: false, winnerId: null,
+    dicePool: [],
   };
 }
 

@@ -10,6 +10,7 @@ import { artifactRegistry } from '../game/artifactRegistry';
 import { performInitialRoll, performInitialReroll, performAwakening, performReroll, checkGameOver, switchPlayer, replenishDice, discardExcessDice, tickCharge } from '../game/engine';
 import { executeSkillsByType, getSkillFn, resolvePlayers } from '../game/skills';
 import { executeEffects } from '../game/effectExecutor';
+import { createDicePool } from '../game/dice';
 import { calcAttackBonus } from '../game/attributeCalculator';
 import type { SkillExecutionResult } from '../../../shared/effects';
 import { sendDraftAction } from '../network/socket';
@@ -168,6 +169,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   winnerId: null,
   defensePending: false,
   pendingAttackDiceId: null,
+  dicePool: createDicePool(),
 
   // ── 网络状态 ──
   isConnected: false,
@@ -417,6 +419,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           winnerId: null,
           defensePending: false,
           pendingAttackDiceId: null,
+          dicePool: createDicePool(),
           screen: 'game',
         });
         if (currentRoom) {
@@ -540,6 +543,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             winnerId: null,
             defensePending: false,
             pendingAttackDiceId: null,
+            dicePool: createDicePool(),
             screen: 'game',
           });
         }
@@ -567,6 +571,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winnerId: null,
       defensePending: false,
       pendingAttackDiceId: null,
+      dicePool: createDicePool(),
     });
   },
 

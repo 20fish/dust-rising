@@ -60,8 +60,8 @@ function createTestGame(overrides?: {
   };
 
   return selfId === 'p1'
-    ? { player: self, opponent: opponent as any, currentPlayerId: 'p1', phase: 'main', round: 1, dustFallCounter: 0, selectedDiceIds: [], isGameOver: false, winnerId: null }
-    : { player: opponent as any, opponent: self, currentPlayerId: 'p2', phase: 'main', round: 1, dustFallCounter: 0, selectedDiceIds: [], isGameOver: false, winnerId: null };
+    ? { player: self, opponent: opponent as any, currentPlayerId: 'p1', phase: 'main', round: 1, dustFallCounter: 0, selectedDiceIds: [], isGameOver: false, winnerId: null, dicePool: [] }
+    : { player: opponent as any, opponent: self, currentPlayerId: 'p2', phase: 'main', round: 1, dustFallCounter: 0, selectedDiceIds: [], isGameOver: false, winnerId: null, dicePool: [] };
 }
 
 /* ═══════════════════════════════════════════════════════════
