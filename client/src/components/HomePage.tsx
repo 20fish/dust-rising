@@ -17,12 +17,12 @@ export const HomePage: React.FC = () => {
     openModal('multiplayer');
   };
 
-  // /** 进入单人模式：先要求输入昵称 */
-  // const handleSinglePlayer = () => {
-  //   if (!nameInput.trim()) return;
-  //   setPlayerName(nameInput.trim());
-  //   openModal('single');
-  // };
+  /** 进入单人模式 */
+  const handleSinglePlayer = () => {
+    if (!nameInput.trim()) return;
+    setPlayerName(nameInput.trim());
+    openModal('single');
+  };
 
   return (
     <div className="home-page">
@@ -61,13 +61,13 @@ export const HomePage: React.FC = () => {
             </span>
           </button>
 
-          {/* <button className="home-btn secondary" onClick={handleSinglePlayer}>
+          <button className="home-btn secondary" onClick={handleSinglePlayer}>
             <span className="home-btn-icon">☗</span>
             <span className="home-btn-text">
               <span className="home-btn-title">单人模式</span>
               <span className="home-btn-desc">AI 对战</span>
             </span>
-          </button> */}
+          </button>
         </div>
       </div>
 

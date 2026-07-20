@@ -12,6 +12,7 @@ import { CreateGameModal } from './components/CreateGameModal';
 import { GameRoom } from './components/GameRoom';
 import { DraftPage } from './components/DraftPage';
 import { GameBoard } from './components/GameBoard';
+import { SinglePlayerModal } from './components/SinglePlayerModal';
 import {
   connect, getSocket,
   onRoomListUpdate, onGameStarted, onDraftAction, onPlayerReady,
@@ -121,6 +122,8 @@ const App: React.FC = () => {
         return <JoinGameModal />;
       case 'create':
         return <CreateGameModal />;
+      case 'single':
+        return <SinglePlayerModal />;
       default:
         return null;
     }
