@@ -4,7 +4,7 @@
 
 import type { SkillFn } from '../skillHelpers';
 import { resolvePlayers } from '../skillHelpers';
-import { gainDice, removeDice, message as msg, cannotExecute, canExecute } from '../effects';
+import { gainDice, removeDice, heal, trueDamage, message as msg, cannotExecute, canExecute } from '../effects';
 
 /**
  * 帷幕（触发）
@@ -31,19 +31,35 @@ export const skillYoumingWeimu: SkillFn = (game, selfId) => {
 /**
  * 冥界行走（启动；持续）
  * 启动：消耗最多3个冥想骰，获得等量攻击骰。
- * 持续：攻击后根据攻击骰点数回血或受伤。
- *
- * 启动部分可实现，持续部分需要攻击上下文，暂未实现。
+ * 持续：当你使用攻击骰造成伤害后，根据骰点：1-2回血2，3-4回血4，5-6受伤2。
  */
 export const skillYoumingMingjiexingzou: SkillFn = (game, selfId) => {
   const { self } = resolvePlayers(game, selfId);
-  const meditationCount = self.zone.meditation.length;
+  const event = game.lastEvent;
 
+  /* ── 持续：攻击后根据攻击骰点数回血或受伤 ── */
+  if (
+    event &&
+    event.type === 'attackResolved' &&
+    event.playerId === selfId &&
+    event.attackDiceValue != null
+  ) {
+    const value = event.attackDiceValue;
+    if (value <= 2) {
+      return canExecute([heal('self', 2), msg('冥界行走·持续：攻击骰≤2，回复2点生命')]);
+    } else if (value <= 4) {
+      return canExecute([heal('self', 4), msg('冥界行走·持续：攻击骰3-4，回复4点生命')]);
+    } else {
+      return canExecute([trueDamage('self', 2), msg('冥界行走·持续：攻击骰5-6，受到2点真实伤害')]);
+    }
+  }
+
+  /* ── 启动：消耗最多3冥想，获得等量攻击 ── */
+  const meditationCount = self.zone.meditation.length;
   if (meditationCount < 1) {
     return cannotExecute('冥想骰不足，至少需要1个');
   }
 
-  // 启动：消耗最多3冥想，获得等量攻击
   const consumeCount = Math.min(3, meditationCount);
   return canExecute([
     removeDice('self', 'meditation', consumeCount),

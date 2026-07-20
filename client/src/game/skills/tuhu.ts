@@ -3,10 +3,14 @@
  * ═══════════════════════════════════════════════════════════ */
 
 import type { SkillFn } from '../skillHelpers';
+import { resolvePlayers } from '../skillHelpers';
+import type { DiceValue } from '../../../../shared/effects';
 import {
   bonusDamage,
+  removeDice,
   message as msg,
   canExecute,
+  cannotExecute,
 } from '../effects';
 
 /* ── 屠虎 ────────────────────────────────────────────────── */
@@ -28,19 +32,38 @@ export const skillTuhuQixi: SkillFn = (_game, _selfId) => {
 /**
  * 横贯（持续；触发）
  * 持续：第二次攻击伤害+2。
- * 触发：弃置对方1个点数小于攻击的能力骰。
- *
- * 注意：持续部分已实现（bonusDamage），但无法在当前 GameState 中
- * 精确追踪"第几次攻击"，因此持续效果作为被动规则标注。
- * 触发部分需要攻击上下文和玩家选择，暂未实现。
+ * 触发：每当你的攻击被抵挡后，弃置对方区域中1个点数小于该攻击的能力骰。
  */
-export const skillTuhuHengguan: SkillFn = (_game, _selfId) => {
-  // 持续效果：第二次攻击+2（无法精确判断攻击次序，作为被动规则标注）
-  return canExecute(
-    [
-      bonusDamage(2),
-      msg('横贯（持续）：第二次攻击伤害+2'),
-    ],
-    undefined,
-  );
+export const skillTuhuHengguan: SkillFn = (game, selfId) => {
+  const { opponent } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  /* ── 触发：攻击被抵挡后，弃置对方1个点数小于攻击骰点数的能力骰 ── */
+  if (
+    event &&
+    event.type === 'attackResolved' &&
+    event.playerId === selfId &&
+    event.attackBlocked &&
+    event.attackDiceValue != null
+  ) {
+    const attackValue = event.attackDiceValue;
+    // 按攻击→防御→冥想顺序查找有低点数骰子的区域
+    const zones = ['attack', 'defense', 'meditation'] as const;
+    for (const zone of zones) {
+      const hasLowValue = opponent.zone[zone].some((d) => d.value < attackValue);
+      if (hasLowValue) {
+        return canExecute([
+          removeDice('opponent', zone, 1, { maxValue: (attackValue - 1) as DiceValue }),
+          msg(`横贯·触发！弃置对方1个点数小于${attackValue}的${zone}骰`),
+        ]);
+      }
+    }
+    return cannotExecute('横贯·触发：对方没有点数小于攻击骰的能力骰');
+  }
+
+  /* ── 持续：第二次攻击伤害+2 ── */
+  return canExecute([
+    bonusDamage(2),
+    msg('横贯（持续）：第二次攻击伤害+2'),
+  ]);
 };

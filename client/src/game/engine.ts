@@ -194,10 +194,11 @@ export function performAwakening(
       } else {
         // 非第三列：激活/切换
         if (!artifact.isActive) {
-          newArtifacts[artifactIndex] = { ...artifact, isActive: true };
+          newArtifacts[artifactIndex] = { ...artifact, isActive: true, activeSide: 0 };
         } else {
-          // 已激活：切换侧面（当前仅保留激活状态，TODO: 实际切换逻辑）
-          newArtifacts[artifactIndex] = { ...artifact, isActive: true };
+          // 已激活：切换侧面（0<->1）
+          const newSide = (artifact.activeSide ?? 0) === 0 ? 1 : 0;
+          newArtifacts[artifactIndex] = { ...artifact, isActive: true, activeSide: newSide };
         }
       }
       player = { ...player, artifacts: newArtifacts };

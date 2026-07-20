@@ -96,6 +96,8 @@ export interface ArtifactDef {
 export interface Artifact extends ArtifactDef {
   /** 是否处于激活状态 */
   isActive: boolean;
+  /** 激活侧面（0=第一侧面, 1=第二侧面），仅双侧面神器使用 */
+  activeSide: number;
   /** 当前充能计数 */
   chargeCount: number;
   /** 通用计数器（技能使用的各种叠加层数等） */
@@ -107,6 +109,7 @@ export function createArtifactInstance(def: ArtifactDef): Artifact {
   return {
     ...def,
     isActive: false,
+    activeSide: 0,
     chargeCount: 0,
     counters: {},
   };
