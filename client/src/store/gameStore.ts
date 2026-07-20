@@ -383,6 +383,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // 后手得尘起标记
         const playerHasSeal = draft.firstPlayerId !== socketId;
 
+        const newPlayer = createPlayer('player', get().playerName || '玩家', p[0].id, p[1].id, p[2].id, playerHasSeal);
+        const newOpponent = createPlayer('opponent', '对手', o[0].id, o[1].id, o[2].id, !playerHasSeal);
+
+        // 自动初始投掷
+        const { player: rolledPlayer } = performInitialRoll(newPlayer);
+        const { player: rolledOpponent } = performInitialRoll(newOpponent);
+
         set({
           draft: {
             ...draft,
@@ -391,8 +398,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
             finalBanned,
             subStep: 6,
           },
-          player: createPlayer('player', get().playerName || '玩家', p[0].id, p[1].id, p[2].id, playerHasSeal),
-          opponent: createPlayer('opponent', '对手', o[0].id, o[1].id, o[2].id, !playerHasSeal),
+          player: rolledPlayer,
+          opponent: rolledOpponent,
           currentPlayerId: 'player',
           phase: 'initialRoll',
           round: 1,
@@ -524,9 +531,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ── 游戏操作 ──
   initGame: (preset) => {
+    const player = createPlayer('player', '玩家', 'yuqie', 'yinglue', 'aige', false);
+    const opponent = createPlayer('opponent', '对手', 'jingang', 'youming', 'dunwu', true);
+    // 自动初始投掷
+    const { player: rolledPlayer } = performInitialRoll(player);
+    const { player: rolledOpponent } = performInitialRoll(opponent);
     set({
-      player: createPlayer('player', '玩家', 'yuqie', 'yinglue', 'aige', false),
-      opponent: createPlayer('opponent', '对手', 'jingang', 'youming', 'dunwu', true),
+      player: rolledPlayer,
+      opponent: rolledOpponent,
       currentPlayerId: 'player',
       phase: 'initialRoll',
       round: 1,
@@ -541,11 +553,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setIsConnected: (connected) => set({ isConnected: connected }),
   setRoomId: (roomId) => set({ roomId }),
 
+  // 初始投掷已改为 initGame / draftAction 中自动执行，保留此方法供兼容性使用
   doInitialRoll: () => {
-    const state = get();
-    const { player: newPlayer } = performInitialRoll(state.player);
-    const { player: newOpponent } = performInitialRoll(state.opponent);
-    set({ player: newPlayer, opponent: newOpponent, phase: 'awakening' });
+    // no-op: 初始投掷已在游戏开始时自动完成
   },
 
   doInitialReroll: (diceIds) => {
