@@ -504,6 +504,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
           const playerHasSeal = draft.firstPlayerId !== socketId;
 
+          const newPlayer = createPlayer('player', get().playerName || '玩家', p[0].id, p[1].id, p[2].id, playerHasSeal);
+          const newOpponent = createPlayer('opponent', '对手', o[0].id, o[1].id, o[2].id, !playerHasSeal);
+
+          // 自动初始投掷（后手视角也需要）
+          const { player: rolledPlayer } = performInitialRoll(newPlayer);
+          const { player: rolledOpponent } = performInitialRoll(newOpponent);
+
           set({
             draft: {
               ...draft,
@@ -512,8 +519,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
               finalBanned,
               subStep: 6,
             },
-            player: createPlayer('player', get().playerName || '玩家', p[0].id, p[1].id, p[2].id, playerHasSeal),
-            opponent: createPlayer('opponent', '对手', o[0].id, o[1].id, o[2].id, !playerHasSeal),
+            player: rolledPlayer,
+            opponent: rolledOpponent,
             currentPlayerId: 'player',
             phase: 'initialRoll',
             round: 1,

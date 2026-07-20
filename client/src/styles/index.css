@@ -54,6 +54,62 @@ body::before {
   padding: 0 max(24px, 3vw);
 }
 
+/* ── 回合信息栏 ── */
+.turn-info-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px;
+  padding: 6px 0 2px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.turn-round {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 700; color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+.turn-player {
+  color: var(--gold);
+  font-weight: 700;
+}
+.turn-phase {
+  color: var(--text-bright);
+}
+.turn-dust {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.turn-divider {
+  color: var(--border-light);
+}
+
+/* ── 阶段操作提示栏 ── */
+.phase-hint-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 4px 0 4px;
+  font-size: 12px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  margin: 0 0 4px;
+  transition: all 0.3s;
+}
+.phase-hint-bar.self-turn {
+  color: var(--gold);
+  background: var(--gold-ghost);
+}
+.phase-hint-bar.opponent-turn {
+  color: var(--text-dim);
+  background: rgba(139, 94, 168, 0.06);
+}
+.phase-hint-icon {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.phase-hint-text {
+  letter-spacing: 0.03em;
+}
+
 /* ── 属性行 ── */
 .stats {
   display: flex; align-items: center; gap: 18px;

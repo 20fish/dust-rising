@@ -19,6 +19,16 @@ const PHASE_LABEL: Record<string, string> = {
   end: '结束阶段',
 };
 
+/** 每个阶段的操作提示 */
+const PHASE_HINT: Record<string, string> = {
+  initialRoll: '初始投掷已完成，可以重掷骰子后进入下一阶段',
+  replenish: '补充骰子中，请等待分配完成',
+  reroll: '选择要重掷的骰子（最多等于速度值），然后重掷',
+  awakening: '选择跳过尘起或激活神器',
+  main: '选择一个攻击骰发起攻击，或使用技能',
+  end: '回合结束，多余骰子将被弃置',
+};
+
 export const GameBoard: React.FC = () => {
   const {
     player,
@@ -48,6 +58,11 @@ export const GameBoard: React.FC = () => {
   };
 
   const currentPlayerName = currentPlayerId === player.playerId ? player.name : opponent.name;
+  const isCurrentPlayerSelf = currentPlayerId === player.playerId;
+
+  // 初始重掷阶段属于双方准备，不显示"谁的回合"
+  const isInitialPhase = phase === 'initialRoll';
+  const turnLabel = isInitialPhase ? '准备阶段' : `${currentPlayerName} 的回合`;
 
   return (
     <div className="table">
@@ -55,11 +70,21 @@ export const GameBoard: React.FC = () => {
       <div className="turn-info-bar">
         <span className="turn-round">第 {round} 回合</span>
         <span className="turn-divider">|</span>
-        <span className="turn-player">{currentPlayerName} 的回合</span>
+        <span className="turn-player">{turnLabel}</span>
         <span className="turn-divider">|</span>
         <span className="turn-phase">{PHASE_LABEL[phase] ?? phase}</span>
         <span className="turn-divider">|</span>
         <span className="turn-dust">尘落 {dustFallCounter}/10</span>
+      </div>
+
+      {/* 操作提示栏 */}
+      <div className={`phase-hint-bar ${isCurrentPlayerSelf ? 'self-turn' : 'opponent-turn'}`}>
+        <span className="phase-hint-icon">{isCurrentPlayerSelf ? '▶' : '⏳'}</span>
+        <span className="phase-hint-text">
+          {isCurrentPlayerSelf
+            ? PHASE_HINT[phase] ?? '等待中...'
+            : `等待 ${currentPlayerName} 操作...`}
+        </span>
       </div>
       {/* 对手区域 (上方) */}
       <PlayerArea
