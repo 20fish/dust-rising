@@ -1,201 +1,78 @@
 /* ═══════════════════════════════════════════════════════════
- * 技能系统 — 神器技能函数（Effect 模式）
+ * 技能系统 — 技能注册表 + 批量触发
  *
- * 设计原则:
- *   - 每个技能是纯函数：(game, selfId) → SkillExecutionResult
- *   - 不直接修改状态，返回 GameEffect[] 数据描述
- *   - EffectExecutor 负责统一应用效果
- *   - 扩展新技能只需：写函数 + 注册到 SKILL_REGISTRY
- *
- * 技能类型:
- *   active     主动技能 — 玩家在主要阶段手动触发
- *   continuous 持续效果 — 满足条件时自动生效
- *   trigger    触发效果 — 事件发生时自动触发
- *   onActivate 激活效果 — 神器激活时触发
- *   onCharge   充能效果 — 充能计数达到要求时触发
+ * 共享类型和辅助函数在 skillHelpers.ts 中（避免循环依赖）
+ * 各角色技能实现在 skills/*.ts 中
  * ═══════════════════════════════════════════════════════════ */
 
 import type { GameState, PlayerState, Artifact, Skill as SkillDef } from '../types/game';
 import type { SkillExecutionResult } from '../../../shared/effects';
-import {
-  damage, bonusDamage, heal, gainDice, removeDice,
-  modifyStat, dustFall, ignoreDefense, damageReduction,
-  message as msg,
-  cannotExecute, canExecute,
-} from './effects';
+import { type SkillFn, resolvePlayers } from './skillHelpers';
+import { canExecute } from './effects';
 
 /* ═══════════════════════════════════════════════════════════
- *  技能函数类型
+ *  导入各神器技能模块（每个神器一个文件）
  * ═══════════════════════════════════════════════════════════ */
 
-export type SkillFn = (game: GameState, selfId: string) => SkillExecutionResult;
+// 空（雨中剑圣）
+import { skillYuqieZhongyangTupo, skillYuqieCaiyuliu } from './skills/yuqie';
+import { skillYoulongLongyouwanxiang, skillYoulongLongtengwanzhang } from './skills/youlong';
+import { skillMingjingZhanshenqie } from './skills/mingjing';
 
-/* ═══════════════════════════════════════════════════════════
- *  辅助函数
- * ═══════════════════════════════════════════════════════════ */
+// 影（永暗之刃）
+import { skillBuxiangCuilian, skillBuxiangFengmang } from './skills/buxiang';
+import { skillYinglueYingxi, skillYinglueQianxing } from './skills/yinglue';
+import { skillWanshaLingshixiaoshou } from './skills/wansha';
 
-/** 根据 selfId 解析出自己和对手 */
-export function resolvePlayers(game: GameState, selfId: string): { self: PlayerState; opponent: PlayerState } {
-  return game.player.playerId === selfId
-    ? { self: game.player, opponent: game.opponent }
-    : { self: game.opponent, opponent: game.player };
-}
+// 李封（天殇的战鬼）
+import { skillTuhuQixi, skillTuhuHengguan } from './skills/tuhu';
+import { skillAigeXianzhen, skillAigeJianya } from './skills/aige';
+import { skillHanguangLinliezhiyin } from './skills/hanguang';
 
-/* ═══════════════════════════════════════════════════════════
- *  第1列神器 (Column 0) — 速度/意志
- * ═══════════════════════════════════════════════════════════ */
+// 玛特（破晓之剑）
+import { skillTianfaBaizhouzhihuo, skillTianfaYunluo } from './skills/tianfa';
+import { skillZhenyanQuanzhi, skillZhenyanShenshengganshe } from './skills/zhenyan';
+import { skillJiushuHuanyufeisheng } from './skills/jiushu';
 
-/**
- * 雨切 · 斩击 (active)
- * 消耗1冥想骰：造成2点额外伤害
- */
-export const skillYuqieZhanji: SkillFn = (game, selfId) => {
-  const { self } = resolvePlayers(game, selfId);
-  if (self.zone.meditation.length < 1) return cannotExecute('冥想骰不足');
-  return canExecute([
-    removeDice('self', 'meditation', 1),
-    bonusDamage(2),
-    msg('斩击！额外造成2点伤害'),
-  ], { meditation: 1 });
-};
+// 塔塔萝丝（地狱的魔女）
+import { skillShenhongZhenshizhijian, skillShenhongShayi } from './skills/shenhong';
+import { skillDunwuLingnengpingzhang, skillDunwuLingnengmaichong } from './skills/dunwu';
+import { skillMonvMengxingshifen } from './skills/monv';
 
-/**
- * 金刚 · 金刚身 (continuous)
- * 受到伤害时减少1点
- */
-export const skillJingangJingangShen: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    damageReduction(1),
-    msg('金刚身：伤害减免1点'),
-  ]);
-};
+// 巴顿二世（孤塔之王）
+import { skillZhuzaiZhanzhengsaodang, skillZhuzaiZhendangzhanji } from './skills/zhuzai';
+import { skillTiebiZhanche, skillTiebiWangshizhiquan } from './skills/tiebi';
+import { skillGuwangGaotatiemu } from './skills/guwang';
 
-/**
- * 佐雷 · 雷击 (active)
- * 消耗1冥想骰：攻击骰+1伤害
- */
-export const skillZuoleiLeiji: SkillFn = (game, selfId) => {
-  const { self } = resolvePlayers(game, selfId);
-  if (self.zone.meditation.length < 1) return cannotExecute('冥想骰不足');
-  return canExecute([
-    removeDice('self', 'meditation', 1),
-    bonusDamage(1),
-    msg('雷击！攻击骰+1伤害'),
-  ], { meditation: 1 });
-};
+// 艾娃（受缚邪灵）
+import { skillEzhaoXueji, skillEzhaoQingsuan } from './skills/ezhao';
+import { skillMengyanDiyu, skillMengyanEyi } from './skills/mengyan';
+import { skillDiaolingSiwangyishi } from './skills/diaoling';
 
-/**
- * 破晓之剑 · 破晓 (active)
- * 消耗1冥想骰：破防，无视防御骰
- */
-export const skillPoxiaoPoxiao: SkillFn = (game, selfId) => {
-  const { self } = resolvePlayers(game, selfId);
-  if (self.zone.meditation.length < 1) return cannotExecute('冥想骰不足');
-  return canExecute([
-    removeDice('self', 'meditation', 1),
-    ignoreDefense(true),
-    msg('破晓！无视防御骰'),
-  ], { meditation: 1 });
-};
+// 修（漆黑死神）
+import { skillXuyuXuwuxingtai, skillXuyuXianji } from './skills/xuyu';
+import { skillYoumingWeimu, skillYoumingMingjiexingzou } from './skills/youming';
+import { skillZhiheiQiheizhanfang } from './skills/zhihei';
 
-/* ═══════════════════════════════════════════════════════════
- *  第2列神器 (Column 1) — 骰点分布
- * ═══════════════════════════════════════════════════════════ */
+// 希瓦（黑枪）
+import { skillSiqiTiandan, skillSiqiChuxingtongdie } from './skills/siqi';
+import { skillShexieWeiju, skillShexieGongzhen } from './skills/shexie';
+import { skillKuangwuXiongdanyewu } from './skills/kuangwu';
 
-/**
- * 影掠 · 影袭 (trigger)
- * 攻击命中时：额外造成1点伤害
- */
-export const skillYinglueYingxi: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    bonusDamage(1),
-    msg('影袭！额外造成1点伤害'),
-  ]);
-};
+// 弥云（渡世行僧）
+import { skillJingangPozhang, skillJingangBudongputi } from './skills/jingang';
+import { skillQianjieWanzhangmingguang, skillQianjieChaodu } from './skills/qianjie';
+import { skillWuxiangWanxiangjumie } from './skills/wuxiang';
 
-/**
- * 幽冥 · 冥火 (active)
- * 消耗1冥想骰：本回合攻击+2
- */
-export const skillYoumingMinghuo: SkillFn = (game, selfId) => {
-  const { self } = resolvePlayers(game, selfId);
-  if (self.zone.meditation.length < 1) return cannotExecute('冥想骰不足');
-  return canExecute([
-    removeDice('self', 'meditation', 1),
-    modifyStat('self', 'attackBonus', 2),
-    msg('冥火！本回合攻击+2'),
-  ], { meditation: 1 });
-};
+// 尼萨（荒野行者）
+import { skillChenaiChenqi, skillChenaiManwangzhiya } from './skills/chenai';
+import { skillShouhunXiongzhixin, skillShouhunLangzhixue } from './skills/shouhun';
+import { skillJueyiYehuoliaoyuan } from './skills/jueyi';
 
-/**
- * 孤塔之王 · 孤塔 (continuous)
- * 防御时额外+1护盾（即：受到伤害时额外减免1点）
- */
-export const skillGutaGuta: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    damageReduction(1),
-    msg('孤塔：额外护盾减免1点'),
-  ]);
-};
-
-/**
- * 邪灵 · 诅咒 (trigger)
- * 回合开始：敌方尘落+1
- */
-export const skillXielingZuzhou: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    dustFall(1),
-    msg('诅咒！敌方尘落+1'),
-  ]);
-};
-
-/* ═══════════════════════════════════════════════════════════
- *  第3列神器 (Column 2) — 生命/充能
- * ═══════════════════════════════════════════════════════════ */
-
-/**
- * 哀歌 · 悲鸣 (onCharge)
- * 充能满时：对敌方造成3点伤害
- */
-export const skillAigeBeiming: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    damage('opponent', 3),
-    msg('悲鸣！对敌方造成3点伤害'),
-  ]);
-};
-
-/**
- * 顿悟 · 顿悟 (onCharge)
- * 充能满时：获得1个额外冥想骰
- */
-export const skillDunwuDunwu: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    gainDice('self', 'meditation', 1),
-    msg('顿悟！获得1个额外冥想骰'),
-  ]);
-};
-
-/**
- * 尼萨 · 治愈 (onCharge)
- * 充能满时：恢复3点生命
- */
-export const skillNisaZhiyu: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    heal('self', 3),
-    msg('治愈！恢复3点生命'),
-  ]);
-};
-
-/**
- * 黑枪 · 黑枪 (onCharge)
- * 充能满时：造成5点伤害
- */
-export const skillHeiqiangHeiqiang: SkillFn = (_game, _selfId) => {
-  return canExecute([
-    damage('opponent', 5),
-    msg('黑枪！造成5点伤害'),
-  ]);
-};
+// 佐雷（轰鸣审判官）
+import { skillMingleiDianxing, skillMingleiLeibao } from './skills/minglei';
+import { skillChengjieJinghua, skillChengjieShuzuibingfa } from './skills/chengjie';
+import { skillCanxiangJuejingtianshen } from './skills/canxiang';
 
 /* ═══════════════════════════════════════════════════════════
  *  技能注册表 — 按 skillId 索引
@@ -203,21 +80,89 @@ export const skillHeiqiangHeiqiang: SkillFn = (_game, _selfId) => {
  * ═══════════════════════════════════════════════════════════ */
 
 export const SKILL_REGISTRY: Record<string, SkillFn> = {
-  /* 第1列 */
-  'yuqie_zhanji': skillYuqieZhanji,
-  'jingang_jingangshen': skillJingangJingangShen,
-  'zuolei_leiji': skillZuoleiLeiji,
-  'poxiao_poxiao': skillPoxiaoPoxiao,
-  /* 第2列 */
+  /* ── 空（雨中剑圣） ── */
+  'yuqie_zhongyangtupo': skillYuqieZhongyangTupo,
+  'yuqie_caiyuliu': skillYuqieCaiyuliu,
+  'youlong_longyouwanxiang': skillYoulongLongyouwanxiang,
+  'youlong_longtengwanzhang': skillYoulongLongtengwanzhang,
+  'mingjing_zhanshenqie': skillMingjingZhanshenqie,
+
+  /* ── 影（永暗之刃） ── */
+  'buxiang_cuilian': skillBuxiangCuilian,
+  'buxiang_fengmang': skillBuxiangFengmang,
   'yinglue_yingxi': skillYinglueYingxi,
-  'youming_minghuo': skillYoumingMinghuo,
-  'guta_guta': skillGutaGuta,
-  'xieling_zuzhou': skillXielingZuzhou,
-  /* 第3列 */
-  'aige_beiming': skillAigeBeiming,
-  'dunwu_dunwu': skillDunwuDunwu,
-  'nisa_zhiyu': skillNisaZhiyu,
-  'heiqiang_heiqiang': skillHeiqiangHeiqiang,
+  'yinglue_qianxing': skillYinglueQianxing,
+  'wansha_lingshixiaoshou': skillWanshaLingshixiaoshou,
+
+  /* ── 李封（天殇的战鬼） ── */
+  'tuhu_qixi': skillTuhuQixi,
+  'tuhu_hengguan': skillTuhuHengguan,
+  'aige_xianzhen': skillAigeXianzhen,
+  'aige_jianya': skillAigeJianya,
+  'hanguang_linliezhiyin': skillHanguangLinliezhiyin,
+
+  /* ── 玛特（破晓之剑） ── */
+  'tianfa_baizhouzhihuo': skillTianfaBaizhouzhihuo,
+  'tianfa_yunluo': skillTianfaYunluo,
+  'zhenyan_quanzhi': skillZhenyanQuanzhi,
+  'zhenyan_shenshengganshe': skillZhenyanShenshengganshe,
+  'jiushu_huanyufeisheng': skillJiushuHuanyufeisheng,
+
+  /* ── 塔塔萝丝（地狱的魔女） ── */
+  'shenhong_zhenshizhijian': skillShenhongZhenshizhijian,
+  'shenhong_shayi': skillShenhongShayi,
+  'dunwu_lingnengpingzhang': skillDunwuLingnengpingzhang,
+  'dunwu_lingnengmaichong': skillDunwuLingnengmaichong,
+  'monv_mengxingshifen': skillMonvMengxingshifen,
+
+  /* ── 巴顿二世（孤塔之王） ── */
+  'zhuzai_zhanzhengsaodang': skillZhuzaiZhanzhengsaodang,
+  'zhuzai_zhendangzhanji': skillZhuzaiZhendangzhanji,
+  'tiebi_zhanche': skillTiebiZhanche,
+  'tiebi_wangshizhiquan': skillTiebiWangshizhiquan,
+  'guwang_gaotatiemu': skillGuwangGaotatiemu,
+
+  /* ── 艾娃（受缚邪灵） ── */
+  'ezhao_xueji': skillEzhaoXueji,
+  'ezhao_qingsuan': skillEzhaoQingsuan,
+  'mengyan_diyu': skillMengyanDiyu,
+  'mengyan_eyi': skillMengyanEyi,
+  'diaoling_siwangyishi': skillDiaolingSiwangyishi,
+
+  /* ── 修（漆黑死神） ── */
+  'xuyu_xuwuxingtai': skillXuyuXuwuxingtai,
+  'xuyu_xianji': skillXuyuXianji,
+  'youming_weimu': skillYoumingWeimu,
+  'youming_mingjiexingzou': skillYoumingMingjiexingzou,
+  'zhihei_qiheizhanfang': skillZhiheiQiheizhanfang,
+
+  /* ── 希瓦（黑枪） ── */
+  'siqi_tiandan': skillSiqiTiandan,
+  'siqi_chuxingtongdie': skillSiqiChuxingtongdie,
+  'shexie_weiju': skillShexieWeiju,
+  'shexie_gongzhen': skillShexieGongzhen,
+  'kuangwu_xiongdanyewu': skillKuangwuXiongdanyewu,
+
+  /* ── 弥云（渡世行僧） ── */
+  'jingang_pozhang': skillJingangPozhang,
+  'jingang_budongputi': skillJingangBudongputi,
+  'qianjie_wanzhangmingguang': skillQianjieWanzhangmingguang,
+  'qianjie_chaodu': skillQianjieChaodu,
+  'wuxiang_wanxiangjumie': skillWuxiangWanxiangjumie,
+
+  /* ── 尼萨（荒野行者） ── */
+  'chenai_chenqi': skillChenaiChenqi,
+  'chenai_manwangzhiya': skillChenaiManwangzhiya,
+  'shouhun_xiongzhixin': skillShouhunXiongzhixin,
+  'shouhun_langzhixue': skillShouhunLangzhixue,
+  'jueyi_yehuoliaoyuan': skillJueyiYehuoliaoyuan,
+
+  /* ── 佐雷（轰鸣审判官） ── */
+  'minglei_dianxing': skillMingleiDianxing,
+  'minglei_leibao': skillMingleiLeibao,
+  'chengjie_jinghua': skillChengjieJinghua,
+  'chengjie_shuzuibingfa': skillChengjieShuzuibingfa,
+  'canxiang_juejingtianshen': skillCanxiangJuejingtianshen,
 };
 
 /** 根据 skillId 获取技能函数 */
@@ -280,3 +225,7 @@ export function getPlayerSkills(
   }
   return result;
 }
+
+/* ── re-export 类型，保持向后兼容 ── */
+export type { SkillFn };
+export { resolvePlayers };

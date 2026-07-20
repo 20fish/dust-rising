@@ -1,163 +1,201 @@
 import { describe, it, expect } from 'vitest';
 import type { GameState } from '../../../../shared/types';
-import {
-  skillYuqieZhanji,
-  skillJingangJingangShen,
-  skillZuoleiLeiji,
-  skillPoxiaoPoxiao,
-  skillYinglueYingxi,
-  skillYoumingMinghuo,
-  skillGutaGuta,
-  skillXielingZuzhou,
-  skillAigeBeiming,
-  skillDunwuDunwu,
-  skillNisaZhiyu,
-  skillHeiqiangHeiqiang,
-} from '../skills';
+import { skillYuqieZhongyangTupo, skillYuqieCaiyuliu } from '../skills/yuqie';
+import { SKILL_REGISTRY, getSkillFn } from '../skills';
+
+/* ── 测试辅助 ── */
 
 function makeArtifact(id: string, skills: any[] = []) {
   return {
-    id, name: id, column: 0, source: 'builtin' as const, version: 1,
+    id, name: id, column: 0 as const, source: 'builtin' as const, version: 1,
     speed: 4, will: 7, life: 50, chargeRequirement: 4,
-    diceDistribution: { 1: 'defense', 2: 'attack', 3: 'defense', 4: 'attack', 5: 'defense', 6: 'attack' },
+    diceDistribution: {} as any,
     skills, imageKey: id, isActive: false, chargeCount: 0, counters: {},
   };
 }
 
-function createTestGame(overrides?: Partial<GameState>): GameState {
-  const game: GameState = {
-    player: {
-      playerId: 'p1', name: '玩家',
-      artifacts: [makeArtifact('a1'), null, makeArtifact('a3')],
-      zone: {
-        defense: [{ id: 'd1', type: 'defense', value: 3 }],
-        attack: [{ id: 'atk1', type: 'attack', value: 5 }],
-        meditation: [{ id: 'm1', type: 'meditation', value: 2 }, { id: 'm2', type: 'meditation', value: 4 }],
-      },
-      speed: 4, will: 7, life: 50, attackBonus: 0,
-      hasDustSeal: false, chargeCount: 4,
-    },
-    opponent: {
-      playerId: 'p2', name: '对手',
-      artifacts: [makeArtifact('b1'), null, makeArtifact('b3')],
-      zone: {
-        defense: [{ id: 'd2', type: 'defense', value: 4 }],
-        attack: [{ id: 'atk2', type: 'attack', value: 3 }],
-        meditation: [],
-      },
-      speed: 4, will: 7, life: 50, attackBonus: 0,
-      hasDustSeal: false, chargeCount: 4,
-    },
-    currentPlayerId: 'p1', phase: 'main', round: 1,
-    dustFallCounter: 0, selectedDiceIds: [],
-    isGameOver: false, winnerId: null,
-  };
-  return overrides ? { ...game, ...overrides } : game;
+function makeMeditationDice(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `med${i}`, type: 'meditation' as const, value: (i % 6 + 1) as 1 | 2 | 3 | 4 | 5 | 6,
+  }));
 }
 
-describe('重构后的技能返回 SkillExecutionResult', () => {
-  describe('第1列 — 速度/意志', () => {
-    it('skillYuqieZhanji: 消耗1冥想骰，bonusDamage +2', () => {
-      const game = createTestGame();
-      const result = skillYuqieZhanji(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'removeDice')).toBe(true);
-      expect(result.effects.some(e => e.type === 'bonusDamage')).toBe(true);
-      const bd = result.effects.find(e => e.type === 'bonusDamage');
-      expect(bd && 'delta' in bd && bd.delta).toBe(2);
-    });
+function makeDefenseDice(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `def${i}`, type: 'defense' as const, value: (i % 6 + 1) as 1 | 2 | 3 | 4 | 5 | 6,
+  }));
+}
 
-    it('skillYuqieZhanji: 无冥想骰时不可执行', () => {
-      const game = createTestGame();
-      game.player.zone.meditation = [];
-      const result = skillYuqieZhanji(game, 'p1');
-      expect(result.canExecute).toBe(false);
-    });
+function createTestGame(overrides?: {
+  selfMeditation?: number;
+  opponentDefense?: number;
+  selfId?: string;
+}): GameState {
+  const selfId = overrides?.selfId ?? 'p1';
+  const opponentId = selfId === 'p1' ? 'p2' : 'p1';
+  const selfMeditation = makeMeditationDice(overrides?.selfMeditation ?? 3);
+  const opponentDefense = makeDefenseDice(overrides?.opponentDefense ?? 5);
 
-    it('skillJingangJingangShen: 持续减伤1', () => {
-      const game = createTestGame();
-      const result = skillJingangJingangShen(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'damageReduction')).toBe(true);
-    });
+  const self: GameState['player'] = {
+    playerId: selfId, name: '玩家',
+    artifacts: [
+      makeArtifact('yuqie', [
+        { skillId: 'yuqie_zhongyangtupo', name: '中央突破', type: '启动', description: '' },
+        { skillId: 'yuqie_caiyuliu', name: '裁雨流', type: '触发', description: '' },
+      ]),
+      null,
+      makeArtifact('mingjing'),
+    ],
+    zone: { defense: [], attack: [], meditation: selfMeditation },
+    speed: 4, will: 7, life: 50, attackBonus: 0,
+    hasDustSeal: false, chargeCount: 0,
+  };
 
-    it('skillZuoleiLeiji: 消耗1冥想骰，bonusDamage +1', () => {
-      const game = createTestGame();
-      const result = skillZuoleiLeiji(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      const bd = result.effects.find(e => e.type === 'bonusDamage');
-      expect(bd && 'delta' in bd && bd.delta).toBe(1);
-    });
+  const opponent: GameState['opponent'] = {
+    playerId: opponentId, name: '对手',
+    artifacts: [makeArtifact('b1'), null, makeArtifact('b3')],
+    zone: { defense: opponentDefense, attack: [], meditation: [] },
+    speed: 4, will: 7, life: 50, attackBonus: 0,
+    hasDustSeal: false, chargeCount: 0,
+  };
 
-    it('skillPoxiaoPoxiao: 消耗1冥想骰，ignoreDefense', () => {
-      const game = createTestGame();
-      const result = skillPoxiaoPoxiao(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'ignoreDefense')).toBe(true);
-    });
+  return selfId === 'p1'
+    ? { player: self, opponent: opponent as any, currentPlayerId: 'p1', phase: 'main', round: 1, dustFallCounter: 0, selectedDiceIds: [], isGameOver: false, winnerId: null }
+    : { player: opponent as any, opponent: self, currentPlayerId: 'p2', phase: 'main', round: 1, dustFallCounter: 0, selectedDiceIds: [], isGameOver: false, winnerId: null };
+}
+
+/* ═══════════════════════════════════════════════════════════
+ *  中央突破（启动）
+ * ═══════════════════════════════════════════════════════════ */
+
+describe('雨切 · 中央突破（启动）', () => {
+  it('有3个冥想骰时：消耗3个，弃置3个防御骰，ignoreDefense', () => {
+    const game = createTestGame({ selfMeditation: 3, opponentDefense: 5 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
+
+    expect(result.canExecute).toBe(true);
+    expect(result.cost?.meditation).toBe(3);
+
+    const removeSelf = result.effects.find(e => e.type === 'removeDice' && e.target === 'self');
+    expect(removeSelf).toBeDefined();
+    expect(removeSelf && 'count' in removeSelf && removeSelf.count).toBe(3);
+    expect(removeSelf && 'zone' in removeSelf && removeSelf.zone).toBe('meditation');
+
+    const removeOpponent = result.effects.find(e => e.type === 'removeDice' && e.target === 'opponent');
+    expect(removeOpponent).toBeDefined();
+    expect(removeOpponent && 'count' in removeOpponent && removeOpponent.count).toBe(3);
+    expect(removeOpponent && 'zone' in removeOpponent && removeOpponent.zone).toBe('defense');
+
+    const ignore = result.effects.find(e => e.type === 'ignoreDefense');
+    expect(ignore).toBeDefined();
   });
 
-  describe('第2列 — 骰点分布', () => {
-    it('skillYinglueYingxi: 攻击命中 bonusDamage +1', () => {
-      const game = createTestGame();
-      const result = skillYinglueYingxi(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      const bd = result.effects.find(e => e.type === 'bonusDamage');
-      expect(bd && 'delta' in bd && bd.delta).toBe(1);
-    });
+  it('有2个冥想骰时：消耗2个，弃置2个防御骰，无ignoreDefense', () => {
+    const game = createTestGame({ selfMeditation: 2, opponentDefense: 5 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
 
-    it('skillYoumingMinghuo: 消耗1冥想骰，attackBonus +2', () => {
-      const game = createTestGame();
-      const result = skillYoumingMinghuo(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'modifyStat')).toBe(true);
-    });
+    expect(result.canExecute).toBe(true);
+    expect(result.cost?.meditation).toBe(2);
 
-    it('skillGutaGuta: 持续减伤1', () => {
-      const game = createTestGame();
-      const result = skillGutaGuta(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'damageReduction')).toBe(true);
-    });
+    const removeSelf = result.effects.find(e => e.type === 'removeDice' && e.target === 'self');
+    expect(removeSelf && 'count' in removeSelf && removeSelf.count).toBe(2);
 
-    it('skillXielingZuzhou: 尘落+1', () => {
-      const game = createTestGame();
-      const result = skillXielingZuzhou(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'dustFall')).toBe(true);
-    });
+    const removeOpponent = result.effects.find(e => e.type === 'removeDice' && e.target === 'opponent');
+    expect(removeOpponent && 'count' in removeOpponent && removeOpponent.count).toBe(2);
+
+    const ignore = result.effects.find(e => e.type === 'ignoreDefense');
+    expect(ignore).toBeUndefined();
   });
 
-  describe('第3列 — 生命/充能', () => {
-    it('skillAigeBeiming: 充能满 damage 3', () => {
-      const game = createTestGame();
-      const result = skillAigeBeiming(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      const dmg = result.effects.find(e => e.type === 'damage');
-      expect(dmg && 'amount' in dmg && dmg.amount).toBe(3);
-    });
+  it('有1个冥想骰时：消耗1个，弃置1个防御骰', () => {
+    const game = createTestGame({ selfMeditation: 1, opponentDefense: 5 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
 
-    it('skillDunwuDunwu: 充能满 gainDice meditation 1', () => {
-      const game = createTestGame();
-      const result = skillDunwuDunwu(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      expect(result.effects.some(e => e.type === 'gainDice')).toBe(true);
-    });
+    expect(result.canExecute).toBe(true);
+    expect(result.cost?.meditation).toBe(1);
 
-    it('skillNisaZhiyu: 充能满 heal 3', () => {
-      const game = createTestGame();
-      const result = skillNisaZhiyu(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      const h = result.effects.find(e => e.type === 'heal');
-      expect(h && 'amount' in h && h.amount).toBe(3);
-    });
+    const removeSelf = result.effects.find(e => e.type === 'removeDice' && e.target === 'self');
+    expect(removeSelf && 'count' in removeSelf && removeSelf.count).toBe(1);
+  });
 
-    it('skillHeiqiangHeiqiang: 充能满 damage 5', () => {
-      const game = createTestGame();
-      const result = skillHeiqiangHeiqiang(game, 'p1');
-      expect(result.canExecute).toBe(true);
-      const dmg = result.effects.find(e => e.type === 'damage');
-      expect(dmg && 'amount' in dmg && dmg.amount).toBe(5);
-    });
+  it('有5个冥想骰时：最多消耗3个（上限）', () => {
+    const game = createTestGame({ selfMeditation: 5, opponentDefense: 5 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
+
+    expect(result.canExecute).toBe(true);
+    expect(result.cost?.meditation).toBe(3);
+
+    const removeSelf = result.effects.find(e => e.type === 'removeDice' && e.target === 'self');
+    expect(removeSelf && 'count' in removeSelf && removeSelf.count).toBe(3);
+  });
+
+  it('无冥想骰时不可执行', () => {
+    const game = createTestGame({ selfMeditation: 0 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
+
+    expect(result.canExecute).toBe(false);
+    expect(result.reason).toContain('冥想骰不足');
+  });
+
+  it('对手无防御骰时仍可执行（弃置0个）', () => {
+    const game = createTestGame({ selfMeditation: 2, opponentDefense: 0 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
+
+    expect(result.canExecute).toBe(true);
+    expect(result.cost?.meditation).toBe(2);
+    // 移除自身冥想骰
+    const removeSelf = result.effects.find(e => e.type === 'removeDice' && e.target === 'self');
+    expect(removeSelf && 'count' in removeSelf && removeSelf.count).toBe(2);
+  });
+
+  it('对手视角（selfId=p2）也能正确工作', () => {
+    const game = createTestGame({ selfMeditation: 3, opponentDefense: 5, selfId: 'p2' });
+    const result = skillYuqieZhongyangTupo(game, 'p2');
+
+    expect(result.canExecute).toBe(true);
+    expect(result.cost?.meditation).toBe(3);
+
+    const removeSelf = result.effects.find(e => e.type === 'removeDice' && e.target === 'self');
+    expect(removeSelf).toBeDefined();
+    expect(removeSelf && 'zone' in removeSelf && removeSelf.zone).toBe('meditation');
+  });
+
+  it('包含 message 效果', () => {
+    const game = createTestGame({ selfMeditation: 3 });
+    const result = skillYuqieZhongyangTupo(game, 'p1');
+
+    const message = result.effects.find(e => e.type === 'message');
+    expect(message).toBeDefined();
+    expect(message && 'text' in message && message.text).toContain('中央突破');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+ *  裁雨流（触发）
+ * ═══════════════════════════════════════════════════════════ */
+
+describe('雨切 · 裁雨流（触发）', () => {
+  it('当前暂未实现交互，返回 cannotExecute', () => {
+    const game = createTestGame({ selfMeditation: 3 });
+    const result = skillYuqieCaiyuliu(game, 'p1');
+
+    expect(result.canExecute).toBe(false);
+    expect(result.reason).toContain('暂未实现');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+ *  SKILL_REGISTRY 注册验证
+ * ═══════════════════════════════════════════════════════════ */
+
+describe('SKILL_REGISTRY 注册验证', () => {
+  it('yuqie_zhongyangtupo 已注册', () => {
+    expect(SKILL_REGISTRY['yuqie_zhongyangtupo']).toBeDefined();
+    expect(getSkillFn('yuqie_zhongyangtupo')).toBe(skillYuqieZhongyangTupo);
+  });
+
+  it('yuqie_caiyuliu 已注册', () => {
+    expect(SKILL_REGISTRY['yuqie_caiyuliu']).toBeDefined();
+    expect(getSkillFn('yuqie_caiyuliu')).toBe(skillYuqieCaiyuliu);
   });
 });
