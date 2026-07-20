@@ -69,6 +69,10 @@ interface GameStore extends GameState {
   /** 预览中的神器ID（弹窗用） */
   previewArtifactId: string | null;
 
+  /* ── 防御待定状态 ── */
+  defensePending: boolean;
+  pendingAttackDiceId: string | null;
+
   // UI 操作
   setScreen: (screen: Screen) => void;
   openModal: (modal: ModalType) => void;
@@ -110,6 +114,8 @@ interface GameStore extends GameState {
   doAttack: (attackDiceId: string, defenseDiceId?: string) => void;
   doAwakening: (action: 'skip' | 'activate', artifactIndex?: number) => void;
   doReroll: (diceIds: string[]) => void;
+  initiateAttack: (attackDiceId: string) => void;
+  resolveDefense: (defenseDiceId?: string) => void;
   advancePhase: () => void;
 
   // 技能系统操作
@@ -160,6 +166,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedDiceIds: [],
   isGameOver: false,
   winnerId: null,
+  defensePending: false,
+  pendingAttackDiceId: null,
 
   // ── 网络状态 ──
   isConnected: false,
@@ -407,6 +415,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           selectedDiceIds: [],
           isGameOver: false,
           winnerId: null,
+          defensePending: false,
+          pendingAttackDiceId: null,
           screen: 'game',
         });
         if (currentRoom) {
@@ -528,6 +538,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
             selectedDiceIds: [],
             isGameOver: false,
             winnerId: null,
+            defensePending: false,
+            pendingAttackDiceId: null,
             screen: 'game',
           });
         }
@@ -553,6 +565,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedDiceIds: [],
       isGameOver: false,
       winnerId: null,
+      defensePending: false,
+      pendingAttackDiceId: null,
     });
   },
 
@@ -701,6 +715,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ player: newState.player, opponent: newState.opponent, selectedDiceIds: [] });
   },
 
+  /* ── 发起攻击：检查对手是否有防御骰，有则进入防御待定模式 ── */
+  initiateAttack: (attackDiceId: string) => {
+    const state = get();
+    const isPlayer = state.currentPlayerId === state.player.playerId;
+    const opponent = isPlayer ? state.opponent : state.player;
+
+    // 如果对手有防御骰，进入防御选择模式
+    if (opponent.zone.defense.length > 0) {
+      set({ defensePending: true, pendingAttackDiceId: attackDiceId, selectedDiceIds: [] });
+    } else {
+      // 对手无防御骰，直接攻击
+      get().doAttack(attackDiceId);
+    }
+  },
+
+  /* ── 防御方选择是否用防御骰抵挡 ── */
+  resolveDefense: (defenseDiceId?: string) => {
+    const { pendingAttackDiceId } = get();
+    if (!pendingAttackDiceId) return;
+
+    set({ defensePending: false, pendingAttackDiceId: null });
+    get().doAttack(pendingAttackDiceId, defenseDiceId);
+  },
+
   advancePhase: () => {
     const state = get();
 
@@ -810,7 +848,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     for (const artifact of self.artifacts) {
       if (!artifact) continue;
       for (const skill of artifact.skills) {
-        if (skill.type !== 'active') continue;
+        // 只有启动和激活类技能可以手动使用
+        const types = skill.type.split(/[；;]/).map(t => t.trim());
+        if (!types.includes('启动') && !types.includes('激活')) continue;
         const fn = getSkillFn(skill.skillId);
         if (!fn) continue;
         const check = fn(state, selfId);

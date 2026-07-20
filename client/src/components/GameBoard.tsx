@@ -3,7 +3,7 @@
  * 统一管理神器预览弹窗（避免6个 ArtifactCard 各自渲染 overlay）
  * ═══════════════════════════════════════════════════════════ */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { Artifact } from '../types/game';
 import { getArtifactImage } from '../game/artifacts';
@@ -40,22 +40,22 @@ export const GameBoard: React.FC = () => {
     selectedDiceIds,
     isGameOver,
     winnerId,
-    doInitialRoll,
+    defensePending,
     skipAwakeningPhase,
+    doAwakening,
+    doReroll,
     advancePhase,
     selectDice,
     deselectDice,
+    initiateAttack,
+    resolveDefense,
+    useSkill,
+    getAvailableSkills,
+    clearSelection,
   } = useGameStore();
 
   /* ── 神器预览状态（GameBoard 级别统一管理，全局唯一） ── */
   const [previewArtifact, setPreviewArtifact] = useState<Artifact | null>(null);
-
-  // 处理确认按钮
-  const handleConfirm = () => {
-    if (phase === 'initialRoll') {
-      doInitialRoll();
-    }
-  };
 
   const currentPlayerName = currentPlayerId === player.playerId ? player.name : opponent.name;
   const isCurrentPlayerSelf = currentPlayerId === player.playerId;
@@ -63,6 +63,74 @@ export const GameBoard: React.FC = () => {
   // 初始重掷阶段属于双方准备，不显示"谁的回合"
   const isInitialPhase = phase === 'initialRoll';
   const turnLabel = isInitialPhase ? '准备阶段' : `${currentPlayerName} 的回合`;
+
+  /* ── 获取当前玩家的骰子 ── */
+  const currentPlayer = isCurrentPlayerSelf ? player : opponent;
+  const currentOpponent = isCurrentPlayerSelf ? opponent : player;
+
+  /* ── 可用技能 ── */
+  const availableSkills = useMemo(() => {
+    if (!isCurrentPlayerSelf) return [];
+    return getAvailableSkills();
+  }, [player, opponent, currentPlayerId, phase, getAvailableSkills]);
+
+  /* ── 能否攻击：当前玩家有攻击骰且选中了恰好1个攻击骰 ── */
+  const canAttack = useMemo(() => {
+    if (defensePending) return false;
+    if (phase !== 'main') return false;
+    const attackDice = currentPlayer.zone.attack;
+    if (attackDice.length === 0) return false;
+    const selectedAttack = selectedDiceIds.filter((id) =>
+      attackDice.some((d) => d.id === id)
+    );
+    return selectedAttack.length === 1;
+  }, [phase, currentPlayer.zone.attack, selectedDiceIds, defensePending]);
+
+  /* ── 能否重掷：选中了骰子且不超过速度 ── */
+  const canReroll = useMemo(() => {
+    return selectedDiceIds.length > 0 && selectedDiceIds.length <= currentPlayer.speed;
+  }, [selectedDiceIds, currentPlayer.speed]);
+
+  /* ── 防御模式：获取可选的防御骰 ── */
+  const defenseDiceIds = useMemo(() => {
+    if (!defensePending) return [];
+    // 防御方是当前轮到的玩家（对手回合时，防御方是玩家自己）
+    return currentOpponent.zone.defense.map((d) => d.id);
+  }, [defensePending, currentOpponent.zone.defense]);
+
+  /* ── 操作处理 ── */
+
+  // 攻击：从选中的骰子中找攻击骰，发起攻击
+  const handleAttack = () => {
+    const attackDice = currentPlayer.zone.attack;
+    const selectedAttack = selectedDiceIds.find((id) =>
+      attackDice.some((d) => d.id === id)
+    );
+    if (selectedAttack) {
+      initiateAttack(selectedAttack);
+    }
+  };
+
+  // 重掷
+  const handleReroll = () => {
+    if (canReroll) {
+      doReroll([...selectedDiceIds]);
+      clearSelection();
+    }
+  };
+
+  // 防御跳过
+  const handleSkipDefense = () => {
+    resolveDefense(undefined);
+  };
+
+  // 防御确认
+  const handleConfirmDefense = () => {
+    const selectedDefense = selectedDiceIds.find((id) =>
+      defenseDiceIds.includes(id)
+    );
+    resolveDefense(selectedDefense);
+  };
 
   return (
     <div className="table">
@@ -78,19 +146,29 @@ export const GameBoard: React.FC = () => {
       </div>
 
       {/* 操作提示栏 */}
-      <div className={`phase-hint-bar ${isCurrentPlayerSelf ? 'self-turn' : 'opponent-turn'}`}>
-        <span className="phase-hint-icon">{isCurrentPlayerSelf ? '▶' : '⏳'}</span>
-        <span className="phase-hint-text">
-          {isCurrentPlayerSelf
-            ? PHASE_HINT[phase] ?? '等待中...'
-            : `等待 ${currentPlayerName} 操作...`}
-        </span>
-      </div>
+      {defensePending ? (
+        <div className="phase-hint-bar opponent-turn">
+          <span className="phase-hint-icon">🛡</span>
+          <span className="phase-hint-text">
+            对方发起攻击！请选择防御骰或跳过
+          </span>
+        </div>
+      ) : (
+        <div className={`phase-hint-bar ${isCurrentPlayerSelf ? 'self-turn' : 'opponent-turn'}`}>
+          <span className="phase-hint-icon">{isCurrentPlayerSelf ? '▶' : '⏳'}</span>
+          <span className="phase-hint-text">
+            {isCurrentPlayerSelf
+              ? PHASE_HINT[phase] ?? '等待中...'
+              : `等待 ${currentPlayerName} 操作...`}
+          </span>
+        </div>
+      )}
+
       {/* 对手区域 (上方) */}
       <PlayerArea
         player={opponent}
         isOpponent={true}
-        selectedDiceIds={selectedDiceIds}
+        selectedDiceIds={defensePending ? selectedDiceIds : (isCurrentPlayerSelf ? selectedDiceIds : [])}
         onSelectDice={selectDice}
         onDeselectDice={deselectDice}
         onArtifactClick={setPreviewArtifact}
@@ -100,16 +178,30 @@ export const GameBoard: React.FC = () => {
       <Battlefield
         phase={phase}
         dustFallCounter={dustFallCounter}
+        canAct={isCurrentPlayerSelf || defensePending}
         onSkipAwakening={skipAwakeningPhase}
-        onConfirm={handleConfirm}
+        onActivateArtifact={(index) => {
+          doAwakening('activate', index);
+        }}
+        onAttack={handleAttack}
+        onReroll={handleReroll}
         onNextPhase={advancePhase}
+        onUseSkill={(skillId) => {
+          useSkill(skillId);
+        }}
+        canAttack={canAttack}
+        canReroll={canReroll}
+        availableSkills={availableSkills}
+        defensePending={defensePending}
+        onSkipDefense={handleSkipDefense}
+        onConfirmDefense={handleConfirmDefense}
       />
 
       {/* 玩家区域 (下方) */}
       <PlayerArea
         player={player}
         isOpponent={false}
-        selectedDiceIds={selectedDiceIds}
+        selectedDiceIds={defensePending ? selectedDiceIds : (isCurrentPlayerSelf ? selectedDiceIds : [])}
         onSelectDice={selectDice}
         onDeselectDice={deselectDice}
         onArtifactClick={setPreviewArtifact}
@@ -121,14 +213,12 @@ export const GameBoard: React.FC = () => {
           className="artifact-preview-overlay"
           onClick={() => setPreviewArtifact(null)}
         >
-          {/* 点击遮罩关闭 */}
           <img
             className="artifact-preview-img"
             src={getArtifactImage(previewArtifact)}
             alt={previewArtifact.name}
             onClick={(e) => e.stopPropagation()}
           />
-          {/* 关闭按钮 */}
           <button
             className="artifact-preview-close"
             onClick={() => setPreviewArtifact(null)}

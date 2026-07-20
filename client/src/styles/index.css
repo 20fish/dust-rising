@@ -306,50 +306,128 @@ body::before {
 
 /* ═══════════════ 中央战场栏 ═══════════════ */
 .battlefield {
-  flex: 1 0 auto;
-  display: flex; align-items: center; justify-content: center;
-  gap: 28px;
+  flex: 0 0 auto;
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 4px 0;
 }
-.bf-phase {
+
+/* ── 阶段信息 ── */
+.bf-phase-info {
+  display: flex; align-items: center; gap: 12px;
+}
+.bf-phase-label {
   font-family: 'Noto Serif SC', serif;
-  font-size: 14px; font-weight: 700; color: var(--gold);
+  font-size: 13px; font-weight: 700; color: var(--gold);
   letter-spacing: 0.08em;
-  padding: 5px 18px;
+  padding: 4px 14px;
   background: var(--surface);
   border: 1px solid var(--border-light);
-  border-radius: 20px;
+  border-radius: 16px;
   white-space: nowrap;
 }
-.bf-dust {
-  display: flex; align-items: baseline; gap: 4px;
-  font-size: 13px; font-weight: 600; color: var(--text-dim);
-}
-.bf-dust .n {
-  font-size: 22px; font-weight: 900; color: var(--danger);
+.bf-dust-count {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
-.bf-acts {
-  display: flex; gap: 8px;
+
+/* ── 操作按钮区 ── */
+.bf-actions {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
 }
-.btn {
+
+/* ── 战场按钮 ── */
+.bf-btn {
   font-family: 'Noto Sans SC', sans-serif;
-  font-size: 12px; font-weight: 600;
-  padding: 6px 16px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  padding: 4px 12px; border-radius: 5px;
   cursor: pointer; border: 1px solid var(--border-light);
   background: var(--surface); color: var(--text-dim);
   transition: all 0.2s;
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
-.btn:hover { border-color: var(--gold-dim); color: var(--text); }
-.btn.primary {
+.bf-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--text); }
+.bf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.bf-btn-primary {
   background: linear-gradient(135deg, rgba(201, 160, 80, 0.18), rgba(201, 160, 80, 0.04));
   border-color: rgba(201, 160, 80, 0.35); color: var(--gold);
 }
-.btn.primary:hover { box-shadow: 0 0 16px var(--gold-muted); }
-.btn.danger { color: var(--danger); }
-.btn.danger:hover { border-color: var(--danger); }
+.bf-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 12px var(--gold-muted);
+}
+
+.bf-btn-secondary {
+  background: var(--surface); color: var(--text-dim);
+}
+.bf-btn-secondary:hover:not(:disabled) {
+  border-color: var(--text-dim); color: var(--text);
+}
+
+.bf-btn-danger {
+  color: var(--danger);
+  border-color: rgba(231, 76, 60, 0.3);
+}
+.bf-btn-danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.2);
+}
+
+/* ── 防御待定面板 ── */
+.bf-defense-panel {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(231, 76, 60, 0.06);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  border-radius: 8px;
+}
+.bf-defense-hint {
+  margin: 0; font-size: 12px; font-weight: 600;
+  color: var(--danger);
+  text-align: center;
+}
+.bf-defense-btns {
+  display: flex; gap: 8px;
+}
+
+/* ── 技能面板 ── */
+.bf-skills-panel {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+.bf-skills-label {
+  font-size: 10px; font-weight: 600; color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bf-skills-list {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  justify-content: center;
+}
+.bf-skill-btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 10px; font-weight: 600;
+  padding: 3px 10px; border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid rgba(139, 94, 168, 0.3);
+  background: rgba(139, 94, 168, 0.08);
+  color: var(--text-dim);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.bf-skill-btn:hover:not(:disabled) {
+  border-color: rgba(139, 94, 168, 0.5);
+  color: var(--text);
+  background: rgba(139, 94, 168, 0.14);
+}
+.bf-skill-disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
 
 /* ── 对手/玩家区域 ── */
 .player-area {
@@ -421,7 +499,7 @@ body::before {
   .stat .v { font-size: 12px; }
   .name { font-size: 12px; }
   .zone-label { font-size: 10px; }
-  .bf-phase { font-size: 12px; }
+  .bf-phase-label { font-size: 12px; }
 }
 @media (min-height: 900px) {
   .face { width: 50px; height: 50px; padding: 7px; }

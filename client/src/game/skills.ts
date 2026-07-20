@@ -174,6 +174,22 @@ export function getSkillFn(skillId: string): SkillFn | undefined {
  *  批量触发 — 按类型自动调用
  * ═══════════════════════════════════════════════════════════ */
 
+/** 技能类型映射：中文类型 → 英文分类 */
+const CN_TYPE_TO_EN: Record<string, string> = {
+  '启动': 'active',
+  '触发': 'trigger',
+  '持续': 'continuous',
+  '激活': 'onActivate',
+  '充能': 'onCharge',
+  '必杀': 'onCharge',
+};
+
+/** 判断技能类型是否包含指定分类 */
+function hasSkillType(skillType: string, targetType: string): boolean {
+  const types = skillType.split(/[；;]/).map(t => t.trim());
+  return types.some(t => CN_TYPE_TO_EN[t] === targetType);
+}
+
 /**
  * 对指定玩家拥有的技能，按类型批量执行
  * 返回所有技能的合并 effects 列表
@@ -190,7 +206,7 @@ export function executeSkillsByType(
   for (const artifact of self.artifacts) {
     if (!artifact) continue;
     for (const skill of artifact.skills) {
-      if (skill.type !== type) continue;
+      if (!hasSkillType(skill.type, type)) continue;
       const fn = getSkillFn(skill.skillId);
       if (!fn) continue;
 
