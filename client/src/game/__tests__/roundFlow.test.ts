@@ -36,18 +36,19 @@ function makePlayer(id: string = 'p1', overrides: Partial<PlayerState> = {}): Pl
 }
 
 describe('roundFlow — replenishDice', () => {
-  it('should add dice up to will when zone is empty', () => {
+  it('should add speed count of dice when zone is empty', () => {
     const player = makePlayer('p1', {
+      speed: 4,
       zone: { defense: [], attack: [], meditation: [] },
     });
     const newPlayer = replenishDice(player);
     const totalDice = newPlayer.zone.defense.length + newPlayer.zone.attack.length + newPlayer.zone.meditation.length;
-    expect(totalDice).toBe(7);
+    expect(totalDice).toBe(4);
   });
 
-  it('should not add dice when zone already has enough', () => {
+  it('should add speed count of dice regardless of current total', () => {
     const player = makePlayer('p1', {
-      will: 3,
+      speed: 4,
       zone: {
         defense: [{ id: 'd1', type: 'defense', value: 3 }],
         attack: [{ id: 'a1', type: 'attack', value: 5 }],
@@ -56,17 +57,17 @@ describe('roundFlow — replenishDice', () => {
     });
     const newPlayer = replenishDice(player);
     const totalDice = newPlayer.zone.defense.length + newPlayer.zone.attack.length + newPlayer.zone.meditation.length;
-    expect(totalDice).toBe(3);
+    expect(totalDice).toBe(7); // 3 existing + 4 new = 7
   });
 
-  it('should add only missing dice count', () => {
+  it('should add speed count of dice on top of existing', () => {
     const player = makePlayer('p1', {
-      will: 7,
+      speed: 4,
       zone: { defense: [{ id: 'd1', type: 'defense', value: 3 }], attack: [], meditation: [] },
     });
     const newPlayer = replenishDice(player);
     const totalDice = newPlayer.zone.defense.length + newPlayer.zone.attack.length + newPlayer.zone.meditation.length;
-    expect(totalDice).toBe(7);
+    expect(totalDice).toBe(5); // 1 existing + 4 new = 5
   });
 });
 

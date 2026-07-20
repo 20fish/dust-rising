@@ -7,7 +7,7 @@ import type { GameState, GamePhase, PlayerState, RoomState, Artifact, ArtifactCo
 import { createArtifactInstance } from '../types/game';
 import { ALL_ARTIFACTS, getArtifactById } from '../game/artifacts';
 import { artifactRegistry } from '../game/artifactRegistry';
-import { performInitialRoll, performInitialReroll, skipAwakening, checkGameOver, switchPlayer, replenishDice, tickCharge } from '../game/engine';
+import { performInitialRoll, performInitialReroll, performAwakening, performReroll, checkGameOver, switchPlayer, replenishDice, discardExcessDice, tickCharge } from '../game/engine';
 import { executeSkillsByType, getSkillFn, resolvePlayers } from '../game/skills';
 import { executeEffects } from '../game/effectExecutor';
 import { calcAttackBonus } from '../game/attributeCalculator';
@@ -107,7 +107,9 @@ interface GameStore extends GameState {
   selectDice: (diceId: string) => void;
   deselectDice: (diceId: string) => void;
   clearSelection: () => void;
-  doAttack: (defenseDiceId?: string) => void;
+  doAttack: (attackDiceId: string, defenseDiceId?: string) => void;
+  doAwakening: (action: 'skip' | 'activate', artifactIndex?: number) => void;
+  doReroll: (diceIds: string[]) => void;
   advancePhase: () => void;
 
   // 技能系统操作
@@ -562,9 +564,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   skipAwakeningPhase: () => {
     const state = get();
-    const newState = skipAwakening(state);
-    const checked = checkGameOver(newState);
-    set(checked);
+    const result = performAwakening(state, state.currentPlayerId, 'skip');
+    set({ ...result.game });
   },
 
   selectDice: (diceId) => {
@@ -583,22 +584,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearSelection: () => set({ selectedDiceIds: [] }),
 
-  doAttack: (defenseDiceId) => {
+  doAwakening: (action, artifactIndex) => {
+    const state = get();
+    const result = performAwakening(state, state.currentPlayerId, action, artifactIndex);
+    set({ ...result.game });
+  },
+
+  doReroll: (diceIds) => {
+    const state = get();
+    const isPlayer = state.currentPlayerId === state.player.playerId;
+    const currentPlayer = isPlayer ? state.player : state.opponent;
+    const result = performReroll(currentPlayer, diceIds);
+    if (isPlayer) {
+      set({ player: result.player });
+    } else {
+      set({ opponent: result.player });
+    }
+  },
+
+  doAttack: (attackDiceId, defenseDiceId) => {
     const state = get();
     const isPlayer = state.currentPlayerId === state.player.playerId;
     const attackerId = isPlayer ? state.player.playerId : state.opponent.playerId;
+    const defenderId = isPlayer ? state.opponent.playerId : state.player.playerId;
 
-    const allAttackDice = (isPlayer ? state.player : state.opponent).zone.attack;
-    const selectedAttackDice = allAttackDice.filter((d) =>
-      state.selectedDiceIds.includes(d.id)
-    );
-
-    if (selectedAttackDice.length === 0) return;
-
-    /* 基础伤害 */
     const attacker = isPlayer ? state.player : state.opponent;
-    let baseDamage = selectedAttackDice.reduce((sum, d) => sum + d.value, 0) + calcAttackBonus(attacker);
-    let blocked = false;
+    const attackDie = attacker.zone.attack.find((d) => d.id === attackDiceId);
+    if (!attackDie) return;
 
     /* 执行攻击方触发技能 → 获取 bonusDamage / ignoreDefense */
     const attackerTriggerResult = executeSkillsByType(state, attackerId, 'trigger');
@@ -609,33 +621,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (e): e is { type: 'ignoreDefense' } => e.type === 'ignoreDefense'
     );
 
-    /* 执行防御方持续技能 → 获取 damageReduction */
-    const defenderId = isPlayer ? state.opponent.playerId : state.player.playerId;
-    const defenderContinuousResult = executeSkillsByType(state, defenderId, 'continuous');
-    const dmgReduction = defenderContinuousResult.effects
-      .filter((e): e is { type: 'damageReduction'; amount: number } => e.type === 'damageReduction')
-      .reduce((sum, e) => sum + e.amount, 0);
-
-    /* 最终伤害 */
-    const finalDamage = Math.max(0, baseDamage + bonusDamage - (isIgnoreDefense ? 0 : dmgReduction));
-
-    /* 构建 effects 列表：移除攻击骰 + 伤害 */
-    const attackIds = selectedAttackDice.map((d) => d.id);
+    /* 构建 effects 列表 */
     const effects: import('../../../shared/effects').GameEffect[] = [
-      ...attackIds.map(id => ({
-        type: 'removeDice' as const,
-        target: 'self' as const,
-        zone: 'attack' as const,
-        count: 1,
-        exactValue: undefined as unknown as number, // will be handled by removeDice
-      })),
-      { type: 'damage', target: 'opponent', amount: finalDamage },
+      { type: 'removeDice', target: 'self', zone: 'attack', count: 1 },
     ];
 
-    /* 防御骰移除 */
-    if (defenseDiceId && !isIgnoreDefense) {
-      effects.push({ type: 'removeDice', target: 'opponent', zone: 'defense', count: 1, exactValue: undefined as unknown as number });
-      blocked = true;
+    let finalDamage = 0;
+    const isBlocked = defenseDiceId && !isIgnoreDefense;
+
+    if (isBlocked) {
+      // 抵挡成功：移除防御骰，不造成伤害
+      effects.push({ type: 'removeDice', target: 'opponent', zone: 'defense', count: 1 });
+    } else {
+      // 未抵挡：计算伤害
+      const baseDamage = attackDie.value + calcAttackBonus(attacker);
+
+      /* 执行防御方持续技能 → 获取 damageReduction */
+      const defenderContinuousResult = executeSkillsByType(state, defenderId, 'continuous');
+      const dmgReduction = defenderContinuousResult.effects
+        .filter((e): e is { type: 'damageReduction'; amount: number } => e.type === 'damageReduction')
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      finalDamage = Math.max(0, baseDamage + bonusDamage - dmgReduction);
+      effects.push({ type: 'damage', target: 'opponent', amount: finalDamage });
     }
 
     /* 通过 EffectExecutor 统一应用 */
@@ -646,7 +654,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const chargeResult = tickCharge(attackerState);
 
     if (chargeResult.isCharged) {
-      /* 充能满 → 触发 onCharge 技能 */
       const chargedPlayer = chargeResult.player;
       const stateWithCharge = newState.player.playerId === attackerId
         ? { ...newState, player: chargedPlayer }
@@ -669,7 +676,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? { ...newState, player: finalReset }
         : { ...newState, opponent: finalReset };
     } else {
-      /* 未满充能 → 更新充能计数 */
       newState = newState.player.playerId === attackerId
         ? { ...newState, player: chargeResult.player }
         : { ...newState, opponent: chargeResult.player };
@@ -680,32 +686,74 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   advancePhase: () => {
     const state = get();
-    const phaseOrder: GamePhase[] = ['replenish', 'reroll', 'awakening', 'main', 'end'];
-    const idx = phaseOrder.indexOf(state.phase);
-    if (idx >= 0 && idx < phaseOrder.length - 1) {
-      const next = phaseOrder[idx + 1];
 
-      /* replenish → reroll: 对双方补骰 */
-      if (state.phase === 'replenish') {
-        const newPlayer = replenishDice(state.player);
-        const newOpponent = replenishDice(state.opponent);
-        set({ player: newPlayer, opponent: newOpponent, phase: 'reroll' });
+    switch (state.phase) {
+      /* ── 初始投掷 → 尘起（第一回合） ── */
+      case 'initialRoll': {
+        set({ phase: 'awakening' });
         return;
       }
 
-      if (next === 'end') {
-        const switched = switchPlayer(state);
+      /* ── 尘起 → 主阶段 ── */
+      case 'awakening': {
+        set({ phase: 'main' });
+        return;
+      }
 
-        // 执行新回合开始时的触发技能（如邪灵诅咒：尘落+1）
-        const triggerResult = executeSkillsByType(switched, switched.currentPlayerId, 'trigger');
-        const dustEffects = triggerResult.effects.filter(e => e.type === 'dustFall');
-        const updatedState = dustEffects.length > 0
-          ? executeEffects(switched, dustEffects, switched.currentPlayerId)
-          : switched;
+      /* ── 补充 → 重掷 ── */
+      case 'replenish': {
+        const currentPlayer = state.currentPlayerId === state.player.playerId ? state.player : state.opponent;
+        const replenished = replenishDice(currentPlayer);
+        if (state.currentPlayerId === state.player.playerId) {
+          set({ player: replenished, phase: 'reroll' });
+        } else {
+          set({ opponent: replenished, phase: 'reroll' });
+        }
+        return;
+      }
 
-        set({ ...updatedState, phase: 'replenish' });
-      } else {
-        set({ phase: next });
+      /* ── 重掷 → 主阶段 ── */
+      case 'reroll': {
+        set({ phase: 'main' });
+        return;
+      }
+
+      /* ── 主阶段 → 结束阶段 ── */
+      case 'main': {
+        set({ phase: 'end' });
+        return;
+      }
+
+      /* ── 结束阶段：弃置多余骰子 → 切换玩家 → 检查游戏结束 ── */
+      case 'end': {
+        const currentPlayer = state.currentPlayerId === state.player.playerId ? state.player : state.opponent;
+        const afterDiscard = discardExcessDice(currentPlayer);
+
+        let nextState: GameState = {
+          ...state,
+          [state.currentPlayerId === state.player.playerId ? 'player' : 'opponent']: afterDiscard.player,
+        };
+
+        // 切换玩家
+        nextState = switchPlayer(nextState);
+
+        // 检查游戏结束
+        nextState = checkGameOver(nextState);
+        if (nextState.isGameOver) {
+          set({ ...nextState, phase: 'end' });
+          return;
+        }
+
+        // 执行新回合开始时的触发技能（如回合开始效果）
+        const triggerResult = executeSkillsByType(nextState, nextState.currentPlayerId, 'trigger');
+        if (triggerResult.canExecute && triggerResult.effects.length > 0) {
+          nextState = executeEffects(nextState, triggerResult.effects, nextState.currentPlayerId);
+        }
+
+        // 判断下一回合的阶段：第一回合(r===1)进尘起，后续进补骰
+        const nextPhase: GamePhase = nextState.round === 1 ? 'awakening' : 'replenish';
+        set({ ...nextState, phase: nextPhase });
+        return;
       }
     }
   },
