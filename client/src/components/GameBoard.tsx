@@ -10,10 +10,21 @@ import { getArtifactImage } from '../game/artifacts';
 import { PlayerArea } from './PlayerArea';
 import { Battlefield } from './Battlefield';
 
+const PHASE_LABEL: Record<string, string> = {
+  initialRoll: '初始重掷',
+  replenish: '补充阶段',
+  reroll: '重掷阶段',
+  awakening: '尘起阶段',
+  main: '主要阶段',
+  end: '结束阶段',
+};
+
 export const GameBoard: React.FC = () => {
   const {
     player,
     opponent,
+    currentPlayerId,
+    round,
     phase,
     dustFallCounter,
     selectedDiceIds,
@@ -36,8 +47,20 @@ export const GameBoard: React.FC = () => {
     }
   };
 
+  const currentPlayerName = currentPlayerId === player.playerId ? player.name : opponent.name;
+
   return (
     <div className="table">
+      {/* 回合信息栏 */}
+      <div className="turn-info-bar">
+        <span className="turn-round">第 {round} 回合</span>
+        <span className="turn-divider">|</span>
+        <span className="turn-player">{currentPlayerName} 的回合</span>
+        <span className="turn-divider">|</span>
+        <span className="turn-phase">{PHASE_LABEL[phase] ?? phase}</span>
+        <span className="turn-divider">|</span>
+        <span className="turn-dust">尘落 {dustFallCounter}/10</span>
+      </div>
       {/* 对手区域 (上方) */}
       <PlayerArea
         player={opponent}

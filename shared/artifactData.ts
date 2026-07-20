@@ -634,7 +634,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
    * ═══════════════════════════════════════════════════════════ */
   {
     id: 'xuyu',
-    name: '虚臾',
+    name: '须臾',
     column: 0,
     source: 'builtin',
     version: 1,
@@ -659,7 +659,7 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
           '你受到4点真实伤害。从以下两项中选择1项执行：①获得3个随机点数的能力骰，并根据其点数移动至对应的区域。②本回合中，你的攻击伤害+2。',
       },
     ],
-    imageKey: '修-虚臾',
+    imageKey: '修-须臾',
   },
   {
     id: 'youming',
