@@ -4,7 +4,7 @@
 
 import type { SkillFn } from '../skillHelpers';
 import { resolvePlayers } from '../skillHelpers';
-import { message as msg, cannotExecute, canExecute } from '../effects';
+import { trueDamage, heal, message as msg, cannotExecute, canExecute } from '../effects';
 
 /**
  * 真实之剑（持续）
@@ -19,9 +19,25 @@ export const skillShenhongZhenshizhijian: SkillFn = (_game, _selfId) => {
 
 /**
  * 杀意（触发）
- * 当补充骰 ≤ 3 时，造成3真实伤害，回复2生命。
- * 需要在补骰阶段触发，当前无法在触发时获取补骰数量。
+ * 当你在补充阶段补充的能力骰数量少于或等于3个时。
+ * 你可以造成3点真实伤害，然后回复2点生命。
  */
-export const skillShenhongShayi: SkillFn = (_game, _selfId) => {
-  return cannotExecute('杀意需要在补骰阶段触发，暂未实现');
+export const skillShenhongShayi: SkillFn = (game, selfId) => {
+  const { self, opponent } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  if (!event || event.type !== 'replenishEnd' || event.playerId !== selfId) {
+    return cannotExecute('杀意：未满足触发条件（需要自身补骰阶段结束时）');
+  }
+
+  // replenishDice 补充 speed 个骰子
+  if (self.speed > 3) {
+    return cannotExecute('杀意：补充骰数量超过3，无法触发');
+  }
+
+  return canExecute([
+    trueDamage('opponent', 3),
+    heal('self', 2),
+    msg('杀意！造成3点真实伤害，回复2点生命'),
+  ]);
 };

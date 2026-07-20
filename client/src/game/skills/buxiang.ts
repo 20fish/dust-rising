@@ -8,6 +8,7 @@ import {
   removeDice,
   setCounter,
   bonusDamage,
+  trueDamage,
   message as msg,
   cannotExecute,
   canExecute,
@@ -43,14 +44,38 @@ export const skillBuxiangCuilian: SkillFn = (game, selfId) => {
 /**
  * 锋芒（持续；触发）
  * 持续：攻击伤害+X，X为本神器计数。
- * 触发：消耗1攻击骰+1冥想骰，取消防御效果，额外2点真实伤害。
- *
- * 注意：此技能包含持续效果和触发效果两部分。
- * 持续部分已实现（bonusDamage），触发部分需要玩家选择，暂未实现。
+ * 触发：当你的攻击被防御骰抵挡后，消耗1攻击骰+1冥想骰，取消该防御骰效果，再额外追加2点真实伤害。
  */
 export const skillBuxiangFengmang: SkillFn = (game, selfId) => {
-  const { self } = resolvePlayers(game, selfId);
+  const { self, opponent } = resolvePlayers(game, selfId);
   const currentStack = (self.artifacts[0]?.counters?.stack as number) ?? 0;
+  const event = game.lastEvent;
+
+  // 触发部分：当攻击被防御骰抵挡后
+  if (
+    event &&
+    event.type === 'attackResolved' &&
+    event.playerId === selfId &&
+    event.attackBlocked === true
+  ) {
+    // 检查是否有足够的攻击骰和冥想骰
+    if (self.zone.attack.length < 1) {
+      return cannotExecute('锋芒触发：攻击骰不足，至少需要1个');
+    }
+    if (self.zone.meditation.length < 1) {
+      return cannotExecute('锋芒触发：冥想骰不足，至少需要1个');
+    }
+
+    return canExecute(
+      [
+        removeDice('self', 'attack', 1),
+        removeDice('self', 'meditation', 1),
+        trueDamage('opponent', 2),
+        msg('锋芒触发！消耗1攻击骰+1冥想骰，取消防御效果，追加2点真实伤害'),
+      ],
+      { attack: 1, meditation: 1 },
+    );
+  }
 
   // 持续效果：攻击伤害+X
   if (currentStack > 0) {
@@ -63,6 +88,6 @@ export const skillBuxiangFengmang: SkillFn = (game, selfId) => {
     );
   }
 
-  // 无计数时仍可返回空持续效果
-  return cannotExecute('触发效果需要玩家选择是否触发，暂未实现');
+  // 无计数且无触发条件
+  return cannotExecute('锋芒：无计数叠加，且未满足触发条件');
 };

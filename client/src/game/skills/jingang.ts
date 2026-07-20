@@ -2,24 +2,48 @@
  * 弥云 — 金刚
  * ═══════════════════════════════════════════════════════════ */
 
+import type { DiceValue } from '../../../../shared/types';
 import type { SkillFn } from '../skillHelpers';
 import { resolvePlayers } from '../skillHelpers';
-import { cannotExecute, canExecute, message as msg } from '../effects';
+import {
+  gainDice,
+  message as msg,
+  cannotExecute,
+  canExecute,
+} from '../effects';
+import { takeFromPoolByCount } from '../dice';
 
 /**
- * 破障（激活；持续）
- * 激活：从供应堆取3个不同点数的骰子存放在神器上。
- * 持续：可将神器上的骰子当作自己的能力骰使用。
+ * 破障（激活）
+ * 从供应堆中拿取1个骰子，将其放置到你的对应区域。
  *
- * 激活部分需要供应堆系统，暂未实现。
- * 持续部分为纯规则描述，无实际效果。
+ * 根据点数：1-2防御 / 3-4攻击 / 5-6冥想
  */
 export const skillJingangPozhang: SkillFn = (game, selfId) => {
   const { self } = resolvePlayers(game, selfId);
 
-  // 激活：需要供应堆系统
+  // 激活：从供应堆取1个骰子
   if (!self.artifacts[0]?.isActive) {
-    return cannotExecute('破障需要供应堆系统，暂未实现');
+    const { dice, pool } = takeFromPoolByCount(game.dicePool, 1);
+
+    if (dice.length === 0) {
+      return cannotExecute('破障：供应堆已空');
+    }
+
+    const die = dice[0];
+    // 1-2防御 / 3-4攻击 / 5-6冥想
+    const zone = die.value <= 2 ? 'defense' : die.value <= 4 ? 'attack' : 'meditation';
+
+    // 更新 dicePool
+    game.dicePool = pool;
+
+    return canExecute(
+      [
+        gainDice('self', zone, 1, [die.value as DiceValue]),
+        msg(`破障！从供应堆拿取${die.value}点骰子，放入${zone === 'attack' ? '攻击' : zone === 'defense' ? '防御' : '冥想'}骰区`),
+      ],
+      undefined,
+    );
   }
 
   // 持续：纯规则效果，提示即可
@@ -27,20 +51,36 @@ export const skillJingangPozhang: SkillFn = (game, selfId) => {
 };
 
 /**
- * 不动菩提（激活；触发）
- * 激活：同破障，从供应堆取3个不同点数的骰子存放在神器上。
- * 触发：对方使用防御/攻击骰后，移除神器上同点骰取消效果。
- *
- * 激活部分需要供应堆系统，触发部分需要攻击上下文，暂未实现。
+ * 不动菩提（触发）
+ * 当你受到攻击后。你可以从供应堆中拿取1个骰子，将其放置到你的对应区域。
  */
 export const skillJingangBudongputi: SkillFn = (game, selfId) => {
   const { self } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
 
-  // 激活：需要供应堆系统
-  if (!self.artifacts[0]?.isActive) {
-    return cannotExecute('不动菩提需要供应堆系统，暂未实现');
+  // 触发：检查是否受到攻击
+  if (!event || event.type !== 'attackResolved' || event.targetId !== selfId) {
+    return cannotExecute('不动菩提：未满足触发条件（需要自身受到攻击后）');
   }
 
-  // 触发部分需要攻击上下文
-  return cannotExecute('不动菩提的触发效果需要攻击上下文，暂未实现');
+  const { dice, pool } = takeFromPoolByCount(game.dicePool, 1);
+
+  if (dice.length === 0) {
+    return cannotExecute('不动菩提：供应堆已空');
+  }
+
+  const die = dice[0];
+  // 1-2防御 / 3-4攻击 / 5-6冥想
+  const zone = die.value <= 2 ? 'defense' : die.value <= 4 ? 'attack' : 'meditation';
+
+  // 更新 dicePool
+  game.dicePool = pool;
+
+  return canExecute(
+    [
+      gainDice('self', zone, 1, [die.value as DiceValue]),
+      msg(`不动菩提！受到攻击后从供应堆拿取${die.value}点骰子，放入${zone === 'attack' ? '攻击' : zone === 'defense' ? '防御' : '冥想'}骰区`),
+    ],
+    undefined,
+  );
 };

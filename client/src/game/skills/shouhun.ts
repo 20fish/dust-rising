@@ -4,7 +4,7 @@
 
 import type { SkillFn } from '../skillHelpers';
 import { resolvePlayers } from '../skillHelpers';
-import { bonusDamage, modifyStat, message as msg, canExecute, cannotExecute } from '../effects';
+import { bonusDamage, setCounter, modifyStat, message as msg, canExecute, cannotExecute } from '../effects';
 
 /**
  * 雄之心（激活；持续）
@@ -19,7 +19,12 @@ export const skillShouhunXiongzhixin: SkillFn = (game, selfId) => {
 
   // 激活：计数重设为2
   if (!self.artifacts[1]?.isActive) {
-    return cannotExecute('雄之心需要激活后才能使用持续效果');
+    const currentCount = stack || 1;
+    return canExecute([
+      setCounter('self', 1, 'stack', currentCount),
+      modifyStat('self', 'attackBonus', currentCount),
+      msg(`雄之心激活！攻击伤害+${currentCount}（计数=${currentCount}）`),
+    ]);
   }
 
   // 持续：攻击伤害+X（X=计数）
@@ -42,7 +47,12 @@ export const skillShouhunLangzhixue: SkillFn = (game, selfId) => {
 
   // 激活：计数重设为2
   if (!self.artifacts[1]?.isActive) {
-    return cannotExecute('狼之血需要激活后才能使用持续效果');
+    const currentCount = stack || 1;
+    return canExecute([
+      setCounter('self', 1, 'stack', currentCount),
+      modifyStat('self', 'speed', currentCount),
+      msg(`狼之血激活！速度+${currentCount}（计数=${currentCount}）`),
+    ]);
   }
 
   // 持续：速度+X（X=计数）

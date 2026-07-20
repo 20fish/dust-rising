@@ -7,12 +7,35 @@ import { resolvePlayers } from '../skillHelpers';
 import { removeDice, gainDice, bonusDamage, message as msg, cannotExecute, canExecute } from '../effects';
 
 /**
- * 低语（持续）
- * 主要阶段结束时获得骰子，需要玩家宣称类型。
- * 需要阶段结束触发和玩家选择，暂未实现。
+ * 低语（触发）
+ * 在你的主要阶段结束时。你可以移去1个能力骰。
+ * 若如此做，本回合中，你的攻击伤害+1。
  */
-export const skillMengyanDiyu: SkillFn = (_game, _selfId) => {
-  return cannotExecute('低语需要玩家选择类型和阶段结束触发，暂未实现');
+export const skillMengyanDiyu: SkillFn = (game, selfId) => {
+  const { self } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  if (!event || event.type !== 'phaseEnd' || event.phase !== 'main' || event.playerId !== selfId) {
+    return cannotExecute('低语：未满足触发条件（需要自身主要阶段结束时）');
+  }
+
+  // 移去1个能力骰，优先防御骰
+  let removeZone: 'attack' | 'defense' | 'meditation';
+  if (self.zone.defense.length > 0) {
+    removeZone = 'defense';
+  } else if (self.zone.attack.length > 0) {
+    removeZone = 'attack';
+  } else if (self.zone.meditation.length > 0) {
+    removeZone = 'meditation';
+  } else {
+    return cannotExecute('低语：没有骰子可移去');
+  }
+
+  return canExecute([
+    removeDice('self', removeZone, 1),
+    bonusDamage(1),
+    msg(`低语！移去1个${removeZone === 'attack' ? '攻击' : removeZone === 'defense' ? '防御' : '冥想'}骰，本回合攻击伤害+1`),
+  ]);
 };
 
 /**

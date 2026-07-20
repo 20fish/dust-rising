@@ -7,12 +7,26 @@ import { resolvePlayers } from '../skillHelpers';
 import { removeDice, trueDamage, setCounter, message as msg, cannotExecute, canExecute } from '../effects';
 
 /**
- * 血祭（持续）
- * 每次攻击后计数+1（上限7），攻击造成伤害后受X真实伤害。
- * 需要攻击上下文来递增计数和自伤，暂未实现。
+ * 血祭（触发）
+ * 当你使用攻击骰造成伤害后。本神器计数+1，你受到1点真实伤害。
  */
-export const skillEzhaoXueji: SkillFn = (_game, _selfId) => {
-  return cannotExecute('血祭需要攻击上下文来递增计数和自伤，暂未实现');
+export const skillEzhaoXueji: SkillFn = (game, selfId) => {
+  const { self } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  if (!event || event.type !== 'attackResolved' || event.playerId !== selfId || (event.attackDamage ?? 0) <= 0) {
+    return cannotExecute('血祭：未满足触发条件（需要自身攻击造成伤害后）');
+  }
+
+  const artifact = self.artifacts[0];
+  const currentCount = artifact?.counters?.blood ?? 0;
+  const newCount = currentCount + 1;
+
+  return canExecute([
+    setCounter('self', 0, 'blood', newCount),
+    trueDamage('self', 1),
+    msg(`血祭！计数+1（当前${newCount}），受到1点真实伤害`),
+  ]);
 };
 
 /**

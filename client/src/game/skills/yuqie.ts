@@ -6,6 +6,8 @@ import type { SkillFn } from '../skillHelpers';
 import { resolvePlayers } from '../skillHelpers';
 import {
   removeDice,
+  moveDice,
+  setCounter,
   ignoreDefense,
   message as msg,
   cannotExecute,
@@ -50,6 +52,33 @@ export const skillYuqieZhongyangTupo: SkillFn = (game, selfId) => {
  * 将其移动至你的防御骰区或冥想骰区。
  * 本技能每回合最多触发3次。
  */
-export const skillYuqieCaiyuliu: SkillFn = (_game, _selfId) => {
-  return cannotExecute('裁雨流需要玩家选择目标区域，暂未实现交互');
+export const skillYuqieCaiyuliu: SkillFn = (game, selfId) => {
+  const { self } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  if (!event || event.type !== 'attackResolved' || event.playerId !== selfId) {
+    return cannotExecute('裁雨流：未满足触发条件（需要自身攻击造成伤害后）');
+  }
+
+  if (!event.attackDamage || event.attackDamage <= 0) {
+    return cannotExecute('裁雨流：本次攻击未造成伤害');
+  }
+
+  // 检查本回合触发次数（上限3次）
+  const triggerCount = (self.artifacts[0]?.counters?.caiyuliu_trigger as number) ?? 0;
+  if (triggerCount >= 3) {
+    return cannotExecute('裁雨流：本回合已触发3次，达到上限');
+  }
+
+  const newCount = triggerCount + 1;
+
+  // 默认将攻击骰移动到防御骰区
+  return canExecute(
+    [
+      moveDice('self', 'attack', 'self', 'defense', 1, false),
+      setCounter('self', 0, 'caiyuliu_trigger', newCount),
+      msg(`裁雨流！攻击骰保留点数移至防御骰区（本回合第${newCount}/3次）`),
+    ],
+    undefined,
+  );
 };

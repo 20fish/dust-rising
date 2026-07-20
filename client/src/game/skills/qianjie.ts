@@ -2,8 +2,10 @@
  * 弥云 — 千劫
  * ═══════════════════════════════════════════════════════════ */
 
+import type { DiceValue } from '../../../../shared/types';
 import type { SkillFn } from '../skillHelpers';
-import { modifyStat, message as msg, canExecute, cannotExecute } from '../effects';
+import { resolvePlayers } from '../skillHelpers';
+import { modifyStat, changeDiceValue, message as msg, canExecute, cannotExecute } from '../effects';
 
 /**
  * 万丈明光（持续）
@@ -21,11 +23,25 @@ export const skillQianjieWanzhangmingguang: SkillFn = (_game, _selfId) => {
 };
 
 /**
- * 超度（启动）
- * 消耗2个同点冥想骰，造成5点真实伤害，选择一个区域重掷。
+ * 超度（激活）
+ * 将你的2个任意能力骰点数变更为[6]。
  *
- * 需要玩家选择区域，暂未实现。
+ * 默认：从攻击骰区取最多2个骰子，变更为6点。
  */
-export const skillQianjieChaodu: SkillFn = (_game, _selfId) => {
-  return cannotExecute('超度需要玩家选择区域，暂未实现');
+export const skillQianjieChaodu: SkillFn = (game, selfId) => {
+  const { self } = resolvePlayers(game, selfId);
+
+  if (self.zone.attack.length === 0) {
+    return cannotExecute('超度：攻击骰区无骰子可变更');
+  }
+
+  const changeCount = Math.min(2, self.zone.attack.length);
+
+  return canExecute(
+    [
+      changeDiceValue('self', 'attack', 6 as DiceValue),
+      msg(`超度！将${changeCount}个攻击骰变更为[6]点`),
+    ],
+    undefined,
+  );
 };

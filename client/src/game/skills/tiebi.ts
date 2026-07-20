@@ -7,11 +7,27 @@ import { resolvePlayers } from '../skillHelpers';
 import { removeDice, gainDice, modifyStat, trueDamage, bonusDamage, message as msg, cannotExecute, canExecute } from '../effects';
 
 /**
- * 战车（持续）
- * 意志+1。回合开始时若有防御骰，获得1个[4]攻击骰。
- * 回合开始触发部分需要回合开始上下文，暂未实现。
+ * 战车（持续；触发）
+ * 持续：意志+1。
+ * 触发：你的回合开始时，如果你拥有至少1个防御骰，你获得1个[4]点的攻击骰。
  */
-export const skillTiebiZhanche: SkillFn = (_game, _selfId) => {
+export const skillTiebiZhanche: SkillFn = (game, selfId) => {
+  const { self } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  /* ── 触发：回合开始时（roundEnd 事件中 playerId 是刚结束回合的玩家，不等于 selfId 意味着新回合开始） ── */
+  if (event && event.type === 'roundEnd' && event.playerId !== selfId) {
+    if (self.zone.defense.length < 1) {
+      return cannotExecute('战车·触发：没有防御骰');
+    }
+    return canExecute([
+      modifyStat('self', 'will', 1),
+      gainDice('self', 'attack', 1, [4]),
+      msg('战车！意志+1，获得1个[4]攻击骰'),
+    ]);
+  }
+
+  /* ── 持续：意志+1 ── */
   return canExecute([
     modifyStat('self', 'will', 1),
     msg('战车：意志+1'),

@@ -8,12 +8,24 @@ import { gainDice, removeDice, message as msg, cannotExecute, canExecute } from 
 
 /**
  * 帷幕（触发）
- * 对方重掷阶段结束时，受到2点真实伤害并弃置对方1骰。
- *
- * 需要在对方重掷阶段结束时触发，暂未实现。
+ * 在对方的重掷阶段结束时。你可以弃置对方1个攻击骰。
  */
-export const skillYoumingWeimu: SkillFn = (_game, _selfId) => {
-  return cannotExecute('帷幕需要在对方重掷阶段结束触发，暂未实现');
+export const skillYoumingWeimu: SkillFn = (game, selfId) => {
+  const { opponent } = resolvePlayers(game, selfId);
+  const event = game.lastEvent;
+
+  if (!event || event.type !== 'rerollEnd' || event.playerId === selfId) {
+    return cannotExecute('帷幕：未满足触发条件（需要对方重掷阶段结束时）');
+  }
+
+  if (opponent.zone.attack.length < 1) {
+    return cannotExecute('帷幕：对方没有攻击骰可弃置');
+  }
+
+  return canExecute([
+    removeDice('opponent', 'attack', 1),
+    msg('帷幕！弃置对方1个攻击骰'),
+  ]);
 };
 
 /**

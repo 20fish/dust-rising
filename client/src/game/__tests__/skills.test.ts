@@ -175,12 +175,66 @@ describe('雨切 · 中央突破（启动）', () => {
  * ═══════════════════════════════════════════════════════════ */
 
 describe('雨切 · 裁雨流（触发）', () => {
-  it('当前暂未实现交互，返回 cannotExecute', () => {
+  it('无 lastEvent 时返回 cannotExecute', () => {
     const game = createTestGame({ selfMeditation: 3 });
     const result = skillYuqieCaiyuliu(game, 'p1');
 
     expect(result.canExecute).toBe(false);
-    expect(result.reason).toContain('暂未实现');
+    expect(result.reason).toContain('未满足触发条件');
+  });
+
+  it('有 attackResolved 事件且造成伤害后，移动攻击骰到防御区', () => {
+    const game = createTestGame({ selfMeditation: 3 });
+    game.lastEvent = {
+      type: 'attackResolved',
+      playerId: 'p1',
+      attackDiceValue: 3,
+      attackDamage: 3,
+      attackBlocked: false,
+    };
+    const result = skillYuqieCaiyuliu(game, 'p1');
+
+    expect(result.canExecute).toBe(true);
+    const moveEffect = result.effects.find(e => e.type === 'moveDice');
+    expect(moveEffect).toBeDefined();
+    expect(moveEffect && 'toZone' in moveEffect && moveEffect.toZone).toBe('defense');
+    const counterEffect = result.effects.find(e => e.type === 'setCounter');
+    expect(counterEffect).toBeDefined();
+    expect(counterEffect && 'value' in counterEffect && counterEffect.value).toBe(1);
+  });
+
+  it('触发3次后达到上限，返回 cannotExecute', () => {
+    const game = createTestGame({ selfMeditation: 3 });
+    // 设置计数器已达到3次
+    if (game.player.artifacts[0]) {
+      game.player.artifacts[0].counters.caiyuliu_trigger = 3;
+    }
+    game.lastEvent = {
+      type: 'attackResolved',
+      playerId: 'p1',
+      attackDiceValue: 3,
+      attackDamage: 3,
+      attackBlocked: false,
+    };
+    const result = skillYuqieCaiyuliu(game, 'p1');
+
+    expect(result.canExecute).toBe(false);
+    expect(result.reason).toContain('触发3次');
+  });
+
+  it('攻击未造成伤害时返回 cannotExecute', () => {
+    const game = createTestGame({ selfMeditation: 3 });
+    game.lastEvent = {
+      type: 'attackResolved',
+      playerId: 'p1',
+      attackDiceValue: 3,
+      attackDamage: 0,
+      attackBlocked: true,
+    };
+    const result = skillYuqieCaiyuliu(game, 'p1');
+
+    expect(result.canExecute).toBe(false);
+    expect(result.reason).toContain('未造成伤害');
   });
 });
 
