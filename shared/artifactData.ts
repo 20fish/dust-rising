@@ -50,9 +50,12 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     life: 0,
     chargeRequirement: 0,
     diceDistribution: {
-      2: ['defense', 'attack', 'meditation'],
-      4: ['defense', 'attack', 'meditation'],
-      6: ['defense', 'attack', 'meditation'],
+      1: 'defense',
+      2: 'meditation',
+      3: 'attack',
+      4: 'attack',
+      5: 'meditation',
+      6: 'defense', 
     },
     skills: [
       {
@@ -138,9 +141,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'attack',
-      2: ['defense', 'attack', 'meditation'],
-      3: 'meditation',
-      5: 'attack',
+      2: 'attack',
+      3: 'defense',
+      4: 'meditation',
+      5: 'meditation',
+      6: 'attack', 
     },
     skills: [
       {
@@ -226,10 +231,12 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     life: 0,
     chargeRequirement: 0,
     diceDistribution: {
-      2: ['defense', 'meditation'],
+      1: 'defense',
+      2: 'meditation',
       3: 'attack',
+      4: 'meditation',
       5: 'attack',
-      6: ['defense', 'meditation'],
+      6: 'defense',
     },
     skills: [
       {
@@ -316,10 +323,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'defense',
-      2: ['defense', 'attack', 'meditation'],
-      3: ['defense', 'attack'],
-      4: ['defense', 'attack', 'meditation'],
-      6: 'meditation',
+      2: 'meditation',
+      3: 'attack',
+      4: 'attack',
+      5: 'meditation',
+      6: 'defense',
     },
     skills: [
       {
@@ -406,10 +414,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'defense',
-      2: ['defense', 'attack', 'meditation'],
-      3: ['attack', 'meditation'],
-      4: 'defense',
-      5: ['attack', 'meditation'],
+      2: 'attack',
+      3: 'meditation',
+      4: 'attack',
+      5: 'meditation',
+      6: 'defense',
     },
     skills: [
       {
@@ -496,9 +505,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'defense',
-      2: ['attack', 'meditation'],
-      4: 'defense',
-      5: ['attack', 'meditation'],
+      2: 'attack',
+      3: 'meditation',
+      4: 'meditation',
+      5: 'attack', 
+      6: 'defense',
     },
     skills: [
       {
@@ -585,8 +596,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'defense',
-      2: ['attack', 'meditation'],
-      3: ['defense', 'attack', 'meditation'],
+      2: 'attack',
+      3: 'meditation',
+      4: 'meditation',
+      5: 'attack', 
+      6: 'defense',
     },
     skills: [
       {
@@ -672,11 +686,12 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     life: 0,
     chargeRequirement: 0,
     diceDistribution: {
-      1: ['attack', 'meditation'],
-      2: 'defense',
+      1: 'attack',
+      2: 'meditation',
       3: 'defense',
-      4: ['defense', 'attack', 'meditation'],
-      5: ['attack', 'meditation'],
+      4: 'defense',
+      5: 'meditation',
+      6: 'attack',
     },
     skills: [
       {
@@ -763,9 +778,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'defense',
-      2: ['attack', 'meditation'],
-      3: 'defense',
-      4: ['attack', 'meditation'],
+      2: 'attack',
+      3: 'meditation',
+      4: 'meditation',
+      5: 'attack',
+      6: 'defense',
     },
     skills: [
       {
@@ -851,8 +868,12 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     life: 0,
     chargeRequirement: 0,
     diceDistribution: {
-      2: ['defense', 'attack', 'meditation'],
-      4: ['defense', 'attack', 'meditation'],
+      1: 'defense',
+      2: 'meditation',
+      3: 'attack',
+      4: 'attack',
+      5: 'meditation',
+      6: 'defense',
     },
     skills: [
       {
@@ -938,8 +959,12 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     life: 0,
     chargeRequirement: 0,
     diceDistribution: {
-      2: 'defense',
-      3: ['attack', 'meditation'],
+      1: 'defense',
+      2: 'meditation',
+      3: 'attack',
+      4: 'meditation',
+      5: 'attack',
+      6: 'defense',
     },
     skills: [
       {
@@ -1026,9 +1051,11 @@ export const BUILTIN_ARTIFACTS: ArtifactDef[] = [
     chargeRequirement: 0,
     diceDistribution: {
       1: 'defense',
-      2: ['attack', 'meditation'],
-      3: 'defense',
-      4: ['attack', 'meditation'],
+      2: 'attack',
+      3: 'meditation',
+      4: 'defense',
+      5: 'meditation',
+      6: 'attack',
     },
     skills: [
       {

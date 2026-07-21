@@ -12,7 +12,7 @@ export interface Dice {
   value: DiceValue;
 }
 
-export type DiceDistribution = Partial<Record<DiceValue, DiceType | DiceType[]>>;
+export type DiceDistribution = Partial<Record<DiceValue, DiceType>>;
 
 /** 神器列 */
 export type ArtifactColumn = 0 | 1 | 2;

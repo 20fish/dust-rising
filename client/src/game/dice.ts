@@ -36,24 +36,16 @@ export function distributeDice(
   distribution: DiceDistribution
 ): DiceZone {
   const zone: DiceZone = { defense: [], attack: [], meditation: [] };
-  // 一点多类型时，按顺序轮转，不伪随机
-  const roundRobin = new Map<DiceValue, number>();
 
   for (const die of dice) {
-    const typeOrTypes = distribution[die.value];
-    if (!typeOrTypes) {
+    const type = distribution[die.value];
+    if (!type) {
       // 无映射时默认归入攻击区
       die.type = 'attack';
       zone.attack.push(die);
       continue;
     }
-    if (Array.isArray(typeOrTypes)) {
-      const count = roundRobin.get(die.value) ?? 0;
-      die.type = typeOrTypes[count % typeOrTypes.length];
-      roundRobin.set(die.value, count + 1);
-    } else {
-      die.type = typeOrTypes;
-    }
+    die.type = type;
     zone[die.type].push(die);
   }
 
