@@ -36,6 +36,8 @@ export function distributeDice(
   distribution: DiceDistribution
 ): DiceZone {
   const zone: DiceZone = { defense: [], attack: [], meditation: [] };
+  // 一点多类型时，按顺序轮转，不伪随机
+  const roundRobin = new Map<DiceValue, number>();
 
   for (const die of dice) {
     const typeOrTypes = distribution[die.value];
@@ -46,9 +48,9 @@ export function distributeDice(
       continue;
     }
     if (Array.isArray(typeOrTypes)) {
-      // 一点多类型：按骰子分配顺序轮流
-      const idx = die.id.charCodeAt(0) % typeOrTypes.length;
-      die.type = typeOrTypes[idx];
+      const count = roundRobin.get(die.value) ?? 0;
+      die.type = typeOrTypes[count % typeOrTypes.length];
+      roundRobin.set(die.value, count + 1);
     } else {
       die.type = typeOrTypes;
     }
